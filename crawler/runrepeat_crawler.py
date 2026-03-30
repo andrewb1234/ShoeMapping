@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import logging
 import re
 import time
@@ -16,7 +15,7 @@ import cloudscraper
 from bs4 import BeautifulSoup
 
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
 )
@@ -24,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 
 BASE_URL = "https://runrepeat.com"
-DEFAULT_OUTPUT = Path("data/runrepeat_lab_tests.json")
+DEFAULT_OUTPUT = Path("data/runrepeat_lab_tests.sqlite")
 USER_AGENT = (
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
     "AppleWebKit/537.36 (KHTML, like Gecko) "
@@ -37,6 +36,10 @@ RESERVED_PATH_PREFIXES = {
     "catalog",
     "deals",
     "faq",
+    "footwear-testing-services",
+    "guides",
+    "hiring",
+    "legal-disclaimer",
     "news",
     "privacy",
     "sitemap",
@@ -52,9 +55,10 @@ class ShoeRecord:
     source_url: str
     lab_test_results: Dict[str, str]
     crawled_at: str
+    audience_verdict: Optional[int] = None
 
     def to_dict(self) -> Dict[str, object]:
-        return {
+        result = {
             "shoe_id": self.shoe_id,
             "brand": self.brand,
             "shoe_name": self.shoe_name,
@@ -62,6 +66,9 @@ class ShoeRecord:
             "lab_test_results": self.lab_test_results,
             "crawled_at": self.crawled_at,
         }
+        if self.audience_verdict is not None:
+            result["audience_verdict"] = self.audience_verdict
+        return result
 
 
 class RunRepeatCrawler:
@@ -96,60 +103,36 @@ class RunRepeatCrawler:
             raise
 
     def discover_shoe_urls(self, max_urls: Optional[int] = None) -> List[str]:
-        """Discover shoe URLs by parsing HTML sitemaps."""
-        # Start with the main HTML sitemap
-        sitemap_url = urljoin(self.base_url + "/", "sitemap")
+        """Discover shoe URLs by parsing catalog pages from the running-shoes sitemap."""
+        # Use only the running-shoes sitemap
+        running_shoes_sitemap = urljoin(self.base_url + "/", "sitemap/running-shoes")
+        logger.info(f"Using running shoes sitemap: {running_shoes_sitemap}")
         
-        # Find category sitemaps (e.g., /sitemap/running-shoes)
-        category_sitemaps = self._discover_category_sitemaps(sitemap_url)
-        logger.info(f"Found {len(category_sitemaps)} category sitemaps")
+        # Extract all URLs from the running shoes sitemap
+        all_urls = self._extract_urls_from_html_sitemap(running_shoes_sitemap)
         
-        # Extract shoe URLs from each category sitemap
-        all_urls: Set[str] = set()
-        for cat_url in category_sitemaps:
-            urls = self._extract_urls_from_html_sitemap(cat_url)
-            all_urls.update(urls)
+        # Filter for catalog pages (they contain the actual shoe listings)
+        catalog_urls = [url for url in all_urls if "/catalog/" in url]
+        logger.info(f"Found {len(catalog_urls)} catalog pages")
         
-        logger.info(f"Total URLs discovered: {len(all_urls)}")
+        # Extract shoe URLs from each catalog page
+        shoe_urls: Set[str] = set()
+        for catalog_url in catalog_urls:
+            urls = self._extract_shoe_urls_from_catalog(catalog_url)
+            shoe_urls.update(urls)
         
-        shoe_urls = [url for url in all_urls if self._is_candidate_shoe_url(url)]
-        shoe_urls = sorted(set(shoe_urls))
-        logger.info(f"Filtered to {len(shoe_urls)} candidate shoe URLs")
+        logger.info(f"Total shoe URLs discovered: {len(shoe_urls)}")
+        
+        # Filter candidates
+        candidate_shoe_urls = [url for url in shoe_urls if self._is_candidate_shoe_url(url)]
+        candidate_shoe_urls = sorted(set(candidate_shoe_urls))
+        logger.info(f"Filtered to {len(candidate_shoe_urls)} candidate shoe URLs")
         
         if max_urls is not None:
-            shoe_urls = shoe_urls[:max_urls]
-        return shoe_urls
+            candidate_shoe_urls = candidate_shoe_urls[:max_urls]
+        return candidate_shoe_urls
 
-    def _discover_category_sitemaps(self, main_sitemap_url: str) -> List[str]:
-        """Parse main sitemap page to find category sitemaps."""
-        category_sitemaps: List[str] = []
-        
-        try:
-            response = self._get(main_sitemap_url)
-        except Exception as e:
-            logger.error(f"Failed to fetch main sitemap: {e}")
-            return category_sitemaps
-        
-        soup = BeautifulSoup(response.text, "html.parser")
-        
-        # Find all links that point to /sitemap/* paths
-        for link in soup.find_all("a", href=True):
-            href = link["href"].strip()
-            
-            # Convert relative URLs to absolute
-            if href.startswith("/"):
-                href = urljoin(self.base_url + "/", href)
-            
-            # Filter for sitemap subpages (e.g., /sitemap/running-shoes)
-            parsed = urlparse(href)
-            path = parsed.path.strip("/")
-            
-            if path.startswith("sitemap/") and path != "sitemap":
-                category_sitemaps.append(href)
-        
-        
-        return sorted(set(category_sitemaps))
-
+    
     def _extract_urls_from_html_sitemap(self, sitemap_url: str) -> Set[str]:
         """Extract all shoe URLs from an HTML sitemap page."""
         urls: Set[str] = set()
@@ -178,6 +161,38 @@ class RunRepeatCrawler:
         logger.info(f"Sitemap {sitemap_url} contains {len(urls)} URLs")
         return urls
 
+    def _extract_shoe_urls_from_catalog(self, catalog_url: str) -> Set[str]:
+        """Extract individual shoe URLs from a catalog page."""
+        urls: Set[str] = set()
+        
+        try:
+            response = self._get(catalog_url)
+        except Exception as e:
+            logger.warning(f"Failed to fetch catalog {catalog_url}: {e}")
+            return urls
+        
+        soup = BeautifulSoup(response.text, "html.parser")
+        
+        # Find links that look like individual shoe pages
+        for link in soup.find_all("a", href=True):
+            href = link["href"].strip()
+            
+            # Convert relative URLs to absolute
+            if href.startswith("/"):
+                href = urljoin(self.base_url + "/", href)
+            
+            # Look for single-slug URLs (individual shoe pages)
+            if href.startswith(self.base_url):
+                parsed = urlparse(href)
+                path = parsed.path.strip("/")
+                
+                # Individual shoe pages have a single slug (no slashes in path)
+                if path and "/" not in path and path not in RESERVED_PATH_PREFIXES:
+                    urls.add(href)
+        
+        logger.info(f"Catalog {catalog_url} contains {len(urls)} shoe URLs")
+        return urls
+
     def _is_candidate_shoe_url(self, url: str) -> bool:
         if not url.startswith(self.base_url):
             return False
@@ -188,12 +203,22 @@ class RunRepeatCrawler:
             return False
 
         slug = path.lower()
+        
+        # Filter out known non-shoe paths
         if slug in RESERVED_PATH_PREFIXES:
+            logger.debug(f"Filtered out reserved path: {slug}")
             return False
         if any(slug.startswith(prefix + "-") for prefix in RESERVED_PATH_PREFIXES):
+            logger.debug(f"Filtered out path with reserved prefix: {slug}")
             return False
 
-        return bool(re.fullmatch(r"[a-z0-9-]+", slug))
+        # For now, just filter out the obvious non-shoe pages
+        # We'll rely on the page content validation to filter further
+
+        is_valid = bool(re.fullmatch(r"[a-z0-9-]+", slug))
+        if not is_valid:
+            logger.debug(f"Filtered out invalid slug format: {slug}")
+        return is_valid
 
     def crawl_shoe_page(self, shoe_url: str) -> Optional[ShoeRecord]:
         try:
@@ -216,6 +241,8 @@ class RunRepeatCrawler:
         if not lab_results:
             return None
 
+        audience_verdict = self._extract_audience_verdict(soup)
+
         shoe_id = self._build_shoe_id(brand, shoe_name)
         return ShoeRecord(
             shoe_id=shoe_id,
@@ -223,6 +250,7 @@ class RunRepeatCrawler:
             shoe_name=shoe_name,
             source_url=shoe_url,
             lab_test_results=lab_results,
+            audience_verdict=audience_verdict,
             crawled_at=datetime.now(tz=timezone.utc).isoformat(),
         )
 
@@ -277,6 +305,44 @@ class RunRepeatCrawler:
 
         return results
 
+    def _extract_audience_verdict(self, soup: BeautifulSoup) -> Optional[int]:
+        """Extract the Audience Verdict score from the shoe page."""
+        # Look for the audience verdict section
+        audience_heading = soup.find(string=re.compile(r"Audience\s+verdict", re.IGNORECASE))
+        if not audience_heading:
+            return None
+
+        # Find the score element (usually a div with the score number)
+        # First try to find it near the heading
+        heading_parent = audience_heading.find_parent()
+        if heading_parent:
+            # Look for a div containing the score (typically a large number)
+            score_elements = heading_parent.find_all("div")
+            for elem in score_elements:
+                text = elem.get_text(strip=True)
+                # Check if it's a number (the score)
+                if text.isdigit() and len(text) <= 3:  # Scores are typically 1-100
+                    try:
+                        score = int(text)
+                        if 0 <= score <= 100:  # Validate score range
+                            return score
+                    except ValueError:
+                        continue
+
+        # Fallback: look for any element with class containing 'verdict' or 'score'
+        verdict_elements = soup.find_all(class_=re.compile(r"verdict|score", re.IGNORECASE))
+        for elem in verdict_elements:
+            text = elem.get_text(strip=True)
+            if text.isdigit() and len(text) <= 3:
+                try:
+                    score = int(text)
+                    if 0 <= score <= 100:
+                        return score
+                except ValueError:
+                    continue
+
+        return None
+
     def _resolve_shoe_column_index(self, headers: List[str], shoe_name: str) -> Optional[int]:
         if not headers:
             return None
@@ -312,27 +378,6 @@ class RunRepeatCrawler:
         return f"{brand.strip()}::{shoe_name.strip()}"
 
 
-def load_existing_records(output_path: Path) -> Dict[str, Dict[str, object]]:
-    if not output_path.exists():
-        return {}
-
-    try:
-        data = json.loads(output_path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-
-    if not isinstance(data, dict):
-        return {}
-
-    return data
-
-
-def save_records(output_path: Path, records: Dict[str, Dict[str, object]]) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(records, indent=2, ensure_ascii=False, sort_keys=True),
-        encoding="utf-8",
-    )
 
 
 def crawl(
@@ -341,16 +386,43 @@ def crawl(
     output_path: Path,
     delay_seconds: float,
 ) -> None:
+    from database import init_database, get_existing_shoe_ids, save_shoe_records
+    
+    # Initialize database
+    init_database(output_path)
+    
     crawler = RunRepeatCrawler(delay_seconds=delay_seconds)
-    existing_records = load_existing_records(output_path)
+    existing_shoe_ids = get_existing_shoe_ids(output_path)
 
     shoe_urls = crawler.discover_shoe_urls(max_urls=max_shoes)
     print(f"Discovered {len(shoe_urls)} candidate shoe URLs")
+    
+    # Filter out already crawled shoes
+    new_urls = []
+    for url in shoe_urls:
+        # Extract shoe_id from URL (last part of path)
+        shoe_slug = url.split('/')[-1]
+        # Check if this shoe was already crawled
+        is_duplicate = False
+        for existing_id in existing_shoe_ids:
+            # Extract shoe name from existing shoe_id (after ::)
+            existing_shoe_name = existing_id.split("::")[-1]
+            # Normalize both by removing " review" suffix and converting to lowercase
+            shoe_slug_norm = shoe_slug.lower().replace("-", " ")
+            existing_name_norm = existing_shoe_name.lower().replace(" review", "")
+            # Compare normalized names
+            if shoe_slug_norm == existing_name_norm:
+                is_duplicate = True
+                break
+        if not is_duplicate:
+            new_urls.append(url)
+    print(f"Skipping {len(shoe_urls) - len(new_urls)} already crawled shoes")
+    print(f"Crawling {len(new_urls)} new shoes")
 
-    new_records: Dict[str, Dict[str, object]] = {}
+    new_records: Dict[str, ShoeRecord] = {}
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(crawler.crawl_shoe_page, url): url for url in shoe_urls}
+        futures = {pool.submit(crawler.crawl_shoe_page, url): url for url in new_urls}
         for future in as_completed(futures):
             url = futures[future]
             try:
@@ -361,14 +433,13 @@ def crawl(
             if not record:
                 continue
 
-            new_records[record.shoe_id] = record.to_dict()
+            new_records[record.shoe_id] = record
             print(f"Captured: {record.shoe_id} ({len(record.lab_test_results)} metrics) from {url}")
 
-    merged = {**existing_records, **new_records}
-    save_records(output_path, merged)
+    # Save to database
+    save_shoe_records(output_path, new_records)
 
-    print(f"Saved {len(merged)} total shoe records to {output_path}")
-    print(f"New records in this run: {len(new_records)}")
+    print(f"Saved {len(new_records)} new shoe records to {output_path}")
 
 
 def parse_args() -> argparse.Namespace:
@@ -397,7 +468,7 @@ def parse_args() -> argparse.Namespace:
         "--output",
         type=Path,
         default=DEFAULT_OUTPUT,
-        help="Output JSON datastore path.",
+        help="Output SQLite datastore path.",
     )
     return parser.parse_args()
 

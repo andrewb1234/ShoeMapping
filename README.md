@@ -1,24 +1,22 @@
 # ShoeMapping: RunRepeat Crawler (Phase 1)
 
-This repository now contains the first data collection step for the shoe recommendation engine: a crawler that discovers shoe pages on `https://runrepeat.com/` and extracts shoe-specific **Lab Test Results**.
+This repository contains the first data collection step for the shoe recommendation engine: a crawler that discovers running shoe pages on `https://runrepeat.com/` and extracts shoe-specific **Lab Test Results** and **Audience Verdict** scores.
 
-## What it stores
+## Data Storage
 
-Each record is keyed by:
+Data is stored in a SQLite database optimized for ML workflows:
 
-- `shoe_id = "<brand>::<full_shoe_name>"`
+### Schema
+- `shoe_id` (TEXT PRIMARY KEY) - Format: `"<brand>::<full_shoe_name>"`
+- `brand` (TEXT) - Extracted brand name
+- `shoe_name` (TEXT) - Full shoe name
+- `source_url` (TEXT) - Original RunRepeat URL
+- `audience_verdict` (INTEGER) - 0-100 score (nullable)
+- `lab_test_results` (JSON) - Dynamic metrics as JSON string
+- `crawled_at` (TEXT) - ISO timestamp
 
-And includes:
-
-- `brand`
-- `shoe_name`
-- `source_url`
-- `lab_test_results` (metric/value pairs from the shoe column, i.e. left of `Average`)
-- `crawled_at`
-
-Output file defaults to:
-
-- `data/runrepeat_lab_tests.json`
+### Output
+Default database: `data/runrepeat_lab_tests.sqlite`
 
 ## Setup
 
@@ -28,29 +26,51 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Run
+## Usage
 
+### Crawling Data
 Quick test crawl:
-
 ```bash
 python3 -m crawler.runrepeat_crawler --max-shoes 20 --workers 4
 ```
 
-Larger crawl:
-
+Full crawl (running shoes only):
 ```bash
 python3 -m crawler.runrepeat_crawler --workers 8
 ```
 
-Custom output:
-
+Custom output location:
 ```bash
-python3 -m crawler.runrepeat_crawler --output data/runrepeat_lab_tests_full.json
+python3 -m crawler.runrepeat_crawler --output data/custom_shoes.sqlite
 ```
+
+### ML Data Access
+```python
+import sqlite3
+import pandas as pd
+from pandas import json_normalize
+
+# Load data for ML
+conn = sqlite3.connect('data/runrepeat_lab_tests.sqlite')
+df = pd.read_sql_query("SELECT * FROM shoes", conn)
+
+# Flatten JSON metrics for modeling
+metrics_df = json_normalize(df['lab_test_results'])
+final_df = pd.concat([df.drop('lab_test_results', axis=1), metrics_df], axis=1)
+```
+
+## Features
+
+- **Running shoes focus**: Crawls only `/sitemap/running-shoes` category
+- **Cloudflare bypass**: Uses `cloudscraper` for reliable access
+- **Incremental updates**: Skips already crawled shoes automatically
+- **Dynamic metrics**: Handles varying lab test configurations per shoe
+- **ML-ready**: Direct Pandas integration with JSON normalization
+- **Audience Verdict**: Captures user rating scores (0-100)
 
 ## Notes
 
-- URL discovery is sitemap-based (`robots.txt` + sitemap traversal).
-- Candidate pages are filtered to likely single-slug shoe pages.
-- The crawler skips pages where it cannot find `Lab Test Results` in table format.
-- Re-runs are incremental: existing output is loaded and merged by `shoe_id`.
+- URL discovery: Sitemap → Catalog pages → Individual shoe pages
+- Lab Test Results: Extracts shoe-specific column (left of "Average")
+- Re-runs are efficient: Only crawls new/updated shoes
+- Database schema supports flexible metric addition over time
