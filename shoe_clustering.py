@@ -39,6 +39,7 @@ DEFAULT_FEATURES = [
     "Energy return heel",
     "Weight",
     "Midsole softness (old method)",
+    "Torsional rigidity",
 ]
 
 FEATURE_ALIASES: Dict[str, Sequence[str]] = {
@@ -51,6 +52,7 @@ FEATURE_ALIASES: Dict[str, Sequence[str]] = {
         "Midsole softness (old method)",
         "Midsole softness",
     ),
+    "Torsional rigidity": ("Torsional rigidity", "Torsional rigidity (old method)"),
 }
 
 
@@ -243,7 +245,26 @@ class ShoeKMeansClusterer:
         if feature_frame.empty:
             raise ValueError("No shoes contain enough feature data for clustering.")
 
+        # Check for features with >30% missing values
         feature_matrix = feature_frame[self.feature_names]
+        missing_counts = feature_matrix.isna().sum()
+        total_shoes = len(feature_matrix)
+        
+        features_to_keep = []
+        for feature in self.feature_names:
+            missing_pct = (missing_counts[feature] / total_shoes) * 100
+            if missing_pct > 30:
+                logger.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values (>30%), excluding from clustering")
+            else:
+                features_to_keep.append(feature)
+        
+        if not features_to_keep:
+            raise ValueError("No features have sufficient data (<30% missing) for clustering")
+        
+        # Update feature names to only include features with sufficient data
+        self.feature_names = features_to_keep
+        feature_matrix = feature_matrix[self.feature_names]
+        
         imputed = self.imputer.fit_transform(feature_matrix)
         scaled = self.scaler.fit_transform(imputed)
 

@@ -130,6 +130,9 @@ python3 shoe_clustering.py "Adidas Adistar"
 - Energy return heel
 - Weight
 - Midsole softness (old method)
+- Torsional rigidity
+
+*Features with >30% missing values are automatically excluded*
 
 ### Notes
 - Install dependencies with `pip install -r requirements.txt`
