@@ -1,6 +1,6 @@
 # ShoeMapping: RunRepeat Crawler (Phase 1)
 
-This repository contains the first data collection step for the shoe recommendation engine: a crawler that discovers running shoe pages on `https://runrepeat.com/` and extracts shoe-specific **Lab Test Results** and **Audience Verdict** scores.
+This repository contains the first data collection step for the shoe recommendation engine: a crawler that discovers running shoe pages on `https://runrepeat.com/` and extracts shoe-specific **Lab Test Results**, **Specs (brand)** fields, and **Audience Verdict** scores.
 
 ## Data Storage
 
@@ -12,7 +12,7 @@ Data is stored in a SQLite database optimized for ML workflows:
 - `shoe_name` (TEXT) - Full shoe name
 - `source_url` (TEXT) - Original RunRepeat URL
 - `audience_verdict` (INTEGER) - 0-100 score (nullable)
-- `lab_test_results` (JSON) - Dynamic metrics as JSON string
+- `lab_test_results` (JSON) - Dynamic metrics and Specs fields as JSON string
 - `crawled_at` (TEXT) - ISO timestamp
 
 ### Output
@@ -39,6 +39,11 @@ Full crawl (running shoes only):
 python3 -m crawler.runrepeat_crawler --workers 8
 ```
 
+Fresh rebuild with a clean database:
+```bash
+python3 -m crawler.runrepeat_crawler --workers 8 --rebuild-db
+```
+
 Custom output location:
 ```bash
 python3 -m crawler.runrepeat_crawler --output data/custom_shoes.sqlite
@@ -54,7 +59,7 @@ from pandas import json_normalize
 conn = sqlite3.connect('data/runrepeat_lab_tests.sqlite')
 df = pd.read_sql_query("SELECT * FROM shoes", conn)
 
-# Flatten JSON metrics for modeling
+# Flatten JSON metrics and Specs fields for modeling
 metrics_df = json_normalize(df['lab_test_results'])
 final_df = pd.concat([df.drop('lab_test_results', axis=1), metrics_df], axis=1)
 ```
@@ -65,6 +70,7 @@ final_df = pd.concat([df.drop('lab_test_results', axis=1), metrics_df], axis=1)
 - **Cloudflare bypass**: Uses `cloudscraper` for reliable access
 - **Incremental updates**: Skips already crawled shoes automatically
 - **Dynamic metrics**: Handles varying lab test configurations per shoe
+- **Specs extraction**: Captures `Terrain`, `Arch Support`, `Pronation`, `Arch Type`, `Use`, `Strike Pattern`, and `Pace`
 - **ML-ready**: Direct Pandas integration with JSON normalization
 - **Audience Verdict**: Captures user rating scores (0-100)
 
@@ -146,3 +152,4 @@ python3 shoe_clustering.py "Adidas Adistar"
 - Re-runs are efficient: Only crawls new/updated shoes
 - Database schema supports flexible metric addition over time
 - Activity preprocessor ready for clustering algorithms
+- Use `--rebuild-db` when you want a fresh crawl with new extracted fields

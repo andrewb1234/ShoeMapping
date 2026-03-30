@@ -46,6 +46,44 @@ RESERVED_PATH_PREFIXES = {
     "terms",
 }
 
+SPECS_FIELDS = [
+    "Terrain",
+    "Arch Support",
+    "Pronation",
+    "Arch Type",
+    "Use",
+    "Strike Pattern",
+    "Pace",
+]
+
+HEADING_TAGS = {"h1", "h2", "h3", "h4", "h5", "h6"}
+
+SPEC_VALUE_TO_FIELD = {
+    "road": "Terrain",
+    "trail": "Terrain",
+    "neutral": "Arch Support",
+    "supportive": "Arch Support",
+    "stability": "Arch Support",
+    "neutral pronation": "Pronation",
+    "supination": "Pronation",
+    "underpronation": "Pronation",
+    "overpronation": "Pronation",
+    "high arch": "Arch Type",
+    "low arch": "Arch Type",
+    "flat arch": "Arch Type",
+    "treadmill": "Use",
+    "jogging": "Use",
+    "all-day wear": "Use",
+    "heel strike": "Strike Pattern",
+    "forefoot/midfoot strike": "Strike Pattern",
+    "competition": "Pace",
+    "daily running": "Pace",
+    "tempo": "Pace",
+    "marathon": "Pace",
+    "5k and 10k": "Pace",
+    "half marathon": "Pace",
+}
+
 
 @dataclass
 class ShoeRecord:
@@ -241,6 +279,14 @@ class RunRepeatCrawler:
         if not lab_results:
             return None
 
+        specs = self._extract_specs(soup)
+        if specs:
+            lab_results.update(specs)
+
+        if self._is_non_running_shoe(lab_results):
+            logger.info(f"Skipping non-running shoe without Terrain/Pace: {shoe_name} ({shoe_url})")
+            return None
+
         audience_verdict = self._extract_audience_verdict(soup)
 
         shoe_id = self._build_shoe_id(brand, shoe_name)
@@ -304,6 +350,124 @@ class RunRepeatCrawler:
                 results[metric_name] = metric_value
 
         return results
+
+    def _extract_specs(self, soup: BeautifulSoup) -> Dict[str, str]:
+        heading = self._find_specs_heading(soup)
+        if heading is None:
+            return {}
+
+        section_nodes = self._collect_specs_section_nodes(heading)
+        if not section_nodes:
+            return {}
+
+        specs: Dict[str, List[str]] = {field: [] for field in SPECS_FIELDS}
+
+        for node in section_nodes:
+            if not hasattr(node, "get_text"):
+                continue
+
+            for raw_line in node.get_text("\n", strip=True).splitlines():
+                self._capture_specs_value(specs, raw_line)
+
+            for link in node.find_all("a", href=True):
+                link_text = self._clean_text(link.get_text(" ", strip=True))
+                link_href = link.get("href", "")
+                field_name = self._classify_specs_value(link_text) or self._classify_specs_href(link_href)
+                if field_name:
+                    self._append_spec_value(specs, field_name, link_text)
+
+        filtered = {
+            field_name: " | ".join(values)
+            for field_name, values in specs.items()
+            if values
+        }
+
+        if filtered:
+            logger.debug(f"Extracted Specs fields: {list(filtered.keys())}")
+        return filtered
+
+    def _find_specs_heading(self, soup: BeautifulSoup):
+        for heading_text in ("Specs (brand)", "Specs"):
+            heading = soup.find(
+                lambda tag: getattr(tag, "name", None) in HEADING_TAGS
+                and self._normalize_text(tag.get_text(" ", strip=True)) == self._normalize_text(heading_text)
+            )
+            if heading is not None:
+                return heading
+
+        heading_string = soup.find(string=re.compile(r"Specs\s*\(brand\)|Specs", re.IGNORECASE))
+        if heading_string is None:
+            return None
+
+        for ancestor in heading_string.parents:
+            if getattr(ancestor, "name", None) in HEADING_TAGS:
+                return ancestor
+
+        return None
+
+    def _collect_specs_section_nodes(self, heading) -> List[object]:
+        nodes: List[object] = []
+
+        for sibling in heading.next_siblings:
+            if getattr(sibling, "name", None) in HEADING_TAGS:
+                break
+            if getattr(sibling, "name", None) or self._clean_text(str(sibling)):
+                nodes.append(sibling)
+
+        return nodes
+
+    def _capture_specs_value(self, specs: Dict[str, List[str]], raw_value: str) -> None:
+        for chunk in raw_value.split("|"):
+            value = self._clean_text(chunk)
+            if not value:
+                continue
+
+            field_name = self._classify_specs_value(value)
+            if field_name:
+                self._append_spec_value(specs, field_name, value)
+
+    def _classify_specs_value(self, value: str) -> Optional[str]:
+        normalized = self._normalize_text(value).rstrip(":")
+        if normalized in SPEC_VALUE_TO_FIELD:
+            return SPEC_VALUE_TO_FIELD[normalized]
+
+        if ":" in normalized:
+            normalized = self._normalize_text(normalized.split(":", 1)[1])
+            if normalized in SPEC_VALUE_TO_FIELD:
+                return SPEC_VALUE_TO_FIELD[normalized]
+
+        return None
+
+    def _classify_specs_href(self, href: str) -> Optional[str]:
+        parsed = urlparse(href)
+        slug = parsed.path.rstrip("/").split("/")[-1].lower()
+
+        if slug in {"road-running-shoes", "trail-running-shoes"}:
+            return "Terrain"
+        if slug in {"neutral-running-shoes", "supportive-running-shoes", "stability-running-shoes"}:
+            return "Arch Support"
+        if slug in {"supination-running-shoes", "underpronation-running-shoes", "neutral-pronation-running-shoes", "overpronation-running-shoes"}:
+            return "Pronation"
+        if slug in {"high-arch-running-shoes", "low-arch-running-shoes", "flat-arch-running-shoes"}:
+            return "Arch Type"
+        if slug in {"treadmill-running-shoes", "jogging-running-shoes", "all-day-wear-running-shoes"}:
+            return "Use"
+        if slug in {"heel-strike-running-shoes", "forefoot-midfoot-strike-running-shoes"}:
+            return "Strike Pattern"
+        if slug in {"daily-running-running-shoes", "tempo-running-shoes", "competition-running-shoes", "marathon-running-shoes", "5k-and-10k-running-shoes", "half-marathon-running-shoes"}:
+            return "Pace"
+
+        return None
+
+    @staticmethod
+    def _append_spec_value(specs: Dict[str, List[str]], field_name: str, value: str) -> None:
+        bucket = specs.setdefault(field_name, [])
+        if value not in bucket:
+            bucket.append(value)
+
+    @staticmethod
+    def _is_non_running_shoe(lab_results: Dict[str, str]) -> bool:
+        return not lab_results.get("Terrain") and not lab_results.get("Pace")
 
     def _extract_audience_verdict(self, soup: BeautifulSoup) -> Optional[int]:
         """Extract the Audience Verdict score from the shoe page."""
@@ -374,6 +538,10 @@ class RunRepeatCrawler:
         return " ".join(value.split())
 
     @staticmethod
+    def _normalize_text(value: str) -> str:
+        return re.sub(r"\s+", " ", value).strip().lower()
+
+    @staticmethod
     def _build_shoe_id(brand: str, shoe_name: str) -> str:
         return f"{brand.strip()}::{shoe_name.strip()}"
 
@@ -385,9 +553,14 @@ def crawl(
     workers: int,
     output_path: Path,
     delay_seconds: float,
+    rebuild_db: bool,
 ) -> None:
     from database import init_database, get_existing_shoe_ids, save_shoe_records
     
+    if rebuild_db and output_path.exists():
+        logger.warning(f"Rebuilding database, removing existing file: {output_path}")
+        output_path.unlink()
+
     # Initialize database
     init_database(output_path)
     
@@ -470,6 +643,11 @@ def parse_args() -> argparse.Namespace:
         default=DEFAULT_OUTPUT,
         help="Output SQLite datastore path.",
     )
+    parser.add_argument(
+        "--rebuild-db",
+        action="store_true",
+        help="Delete the existing SQLite datastore before crawling.",
+    )
     return parser.parse_args()
 
 
@@ -480,6 +658,7 @@ def main() -> None:
         workers=max(1, args.workers),
         output_path=args.output,
         delay_seconds=max(0.0, args.delay_seconds),
+        rebuild_db=args.rebuild_db,
     )
 
 

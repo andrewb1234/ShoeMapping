@@ -101,12 +101,14 @@ class ShoeKMeansClusterer:
         n_neighbors: int = 5,
         random_state: int = 42,
         feature_names: Optional[Sequence[str]] = None,
+        terrain_filter: Optional[str] = None,
     ) -> None:
         self.db_path = Path(db_path)
         self.n_clusters = max(1, n_clusters)
         self.n_neighbors = max(1, n_neighbors)
         self.random_state = random_state
         self.feature_names = list(feature_names or DEFAULT_FEATURES)
+        self.terrain_filter = terrain_filter
 
         self.imputer = None
         self.scaler = None
@@ -187,6 +189,22 @@ class ShoeKMeansClusterer:
             raise ValueError(f"No shoe rows found in database: {self.db_path}")
 
         df["lab_test_results"] = df["lab_test_results"].apply(self._safe_json_loads)
+        
+        # Apply terrain filter if specified
+        if self.terrain_filter:
+            def matches_terrain(lab_results: Dict[str, Any]) -> bool:
+                terrain = lab_results.get("Terrain")
+                if terrain is None:
+                    return False
+                terrain_norm = self._normalize_text(terrain)
+                filter_norm = self._normalize_text(self.terrain_filter)
+                return terrain_norm == filter_norm
+            
+            mask = df["lab_test_results"].apply(matches_terrain)
+            df = df[mask]
+            if df.empty:
+                raise ValueError(f"No shoes found matching terrain filter: {self.terrain_filter}")
+        
         return df
 
     def _resolve_lab_test_key(self, lab_results: Dict[str, Any], feature_name: str) -> Tuple[Optional[str], Optional[Any]]:
@@ -231,8 +249,10 @@ class ShoeKMeansClusterer:
 
         feature_frame = pd.DataFrame(rows)
         feature_frame = feature_frame.dropna(axis=0, how="all", subset=self.feature_names)
-        self._search_keys = pd.Series(search_keys, index=shoe_rows.index).loc[feature_frame.index].reset_index(drop=True)
+        # Build search_keys after filtering to align indices
+        self._search_keys = pd.Series([self._normalize_text(r["shoe_name"]) for _, r in feature_frame.iterrows()], index=feature_frame.index)
         feature_frame = feature_frame.reset_index(drop=True)
+        self._search_keys = self._search_keys.reset_index(drop=True)
         return feature_frame
 
     def fit(self) -> "ShoeKMeansClusterer":
@@ -403,9 +423,10 @@ def recommend_similar_shoes(
     db_path: Path | str = DEFAULT_DB_PATH,
     n_clusters: int = 8,
     n_neighbors: int = 5,
+    terrain_filter: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Convenience wrapper for one-off clustering lookups."""
-    clusterer = ShoeKMeansClusterer(db_path=db_path, n_clusters=n_clusters, n_neighbors=n_neighbors)
+    clusterer = ShoeKMeansClusterer(db_path=db_path, n_clusters=n_clusters, n_neighbors=n_neighbors, terrain_filter=terrain_filter)
     return clusterer.recommend(shoe_name)
 
 
@@ -418,6 +439,7 @@ def main() -> None:
     parser.add_argument("--db-path", type=Path, default=DEFAULT_DB_PATH, help="Path to the RunRepeat SQLite database")
     parser.add_argument("--clusters", type=int, default=8, help="Number of K-means clusters")
     parser.add_argument("--neighbors", type=int, default=5, help="Number of nearest shoes to return")
+    parser.add_argument("--terrain", type=str, help="Filter by terrain (e.g., 'Road' or 'Trail'). If not specified, includes all shoes.")
 
     args = parser.parse_args()
     result = recommend_similar_shoes(
@@ -425,6 +447,7 @@ def main() -> None:
         db_path=args.db_path,
         n_clusters=args.clusters,
         n_neighbors=args.neighbors,
+        terrain_filter=args.terrain,
     )
     print(json.dumps(result, indent=2, ensure_ascii=False))
 
