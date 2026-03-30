@@ -68,9 +68,78 @@ final_df = pd.concat([df.drop('lab_test_results', axis=1), metrics_df], axis=1)
 - **ML-ready**: Direct Pandas integration with JSON normalization
 - **Audience Verdict**: Captures user rating scores (0-100)
 
+## Activity Data Processing
+
+For clustering analysis, use the built-in data preprocessor:
+
+```python
+from data_preprocessor import ActivityDataProcessor
+
+# Initialize processor
+processor = ActivityDataProcessor()
+
+# Process your activity CSV
+processed_data = processor.process("your_activities.csv")
+
+# Save for clustering
+processor.save_processed_data(processed_data, "running_activities.csv")
+```
+
+### Command Line Usage
+```bash
+python3 data_preprocessor.py input_activities.csv processed_running_activities.csv --summary
+```
+
+### Extracted Features
+- Activity ID, Date, Type, Gear
+- Distance, Moving Time, Average Speed
+- Grade Adjusted Pace, Elevation Gain
+- Cadence, Heart Rate, Training Load
+- Relative Effort, Perceived Exertion
+- Weather Temperature
+
+### Data Quality
+- Filters to "Run" activities only
+- Handles missing values gracefully
+- Converts to proper data types
+- Provides summary statistics
+
+## RunRepeat Shoe Clustering
+
+The new K-means helper looks up a shoe by human-readable name and returns the shoe's cluster label plus nearest cluster neighbors.
+
+### Example
+```python
+from shoe_clustering import recommend_similar_shoes
+
+result = recommend_similar_shoes("Adidas Adistar")
+print(result["cluster_label"])
+print(result["matched_shoe"])
+print(result["nearest_shoes"])
+```
+
+### CLI
+```bash
+python3 shoe_clustering.py "Adidas Adistar"
+```
+
+### Features used by K-means
+- Drop
+- Heel stack
+- Forefoot stack
+- Energy return heel
+- Weight
+- Midsole softness (old method)
+
+### Notes
+- Install dependencies with `pip install -r requirements.txt`
+- The helper reads from `data/runrepeat_lab_tests.sqlite`
+- Shoe lookup accepts human-readable names and resolves them against the dataset
+
 ## Notes
 
 - URL discovery: Sitemap → Catalog pages → Individual shoe pages
 - Lab Test Results: Extracts shoe-specific column (left of "Average")
 - Re-runs are efficient: Only crawls new/updated shoes
 - Database schema supports flexible metric addition over time
+- Activity preprocessor ready for clustering algorithms
