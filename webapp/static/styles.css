@@ -390,6 +390,23 @@ input:focus {
   font-weight: 700;
 }
 
+.url-link {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  color: #06b6d4;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 500;
+  transition: color 180ms ease, transform 180ms ease;
+}
+
+.url-link:hover {
+  color: #0891b2;
+  transform: translateX(2px);
+  text-decoration: underline;
+}
+
 .muted-card {
   color: var(--muted);
 }

@@ -67,8 +67,8 @@ function formatMetricValue(value, key) {
   return String(value);
 }
 
-function renderMetricGrid(container, values, keys) {
-  container.innerHTML = keys
+function renderMetricGridContent(values, keys) {
+  return keys
     .filter((key) => values[key] !== undefined)
     .map(
       (key) => `
@@ -81,6 +81,10 @@ function renderMetricGrid(container, values, keys) {
     .join("");
 }
 
+function renderMetricGrid(container, values, keys) {
+  container.innerHTML = renderMetricGridContent(values, keys);
+}
+
 function renderMatchedShoe(shoe, result) {
   matchedTitle.textContent = shoe ? shoe.shoe_name : "Choose a shoe to begin";
 
@@ -91,12 +95,20 @@ function renderMatchedShoe(shoe, result) {
   }
 
   matchedShoe.className = "detail-grid";
-  renderMetricGrid(matchedShoe, {
+  
+  // Create URL link if source_url exists
+  const urlLink = shoe.source_url 
+    ? `<a href="${escapeHtml(shoe.source_url)}" target="_blank" rel="noopener noreferrer" class="url-link">View RunRepeat Review →</a>`
+    : '';
+  
+  const metricsHtml = renderMetricGridContent({
     Brand: shoe.brand,
     Terrain: shoe.terrain || "—",
     "Audience verdict": shoe.audience_verdict ?? "—",
     "Similar shoes found": result.recommendations.length,
   }, ["Brand", "Terrain", "Audience verdict", "Similar shoes found"]);
+  
+  matchedShoe.innerHTML = metricsHtml + urlLink;
 }
 
 function convertDistanceToMatchPercentage(distance) {
@@ -135,6 +147,11 @@ function renderRecommendations(items) {
         .map(([label, value]) => `<span class="chip">${escapeHtml(label)}: ${escapeHtml(formatMetricValue(value, label))}</span>`)
         .join("");
 
+      // Create URL link if source_url exists
+      const urlLink = item.source_url 
+        ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener noreferrer" class="url-link">View Review →</a>`
+        : '';
+
       return `
         <article class="recommendation-card">
           <div class="recommendation-header">
@@ -145,6 +162,7 @@ function renderRecommendations(items) {
             <span class="chip match-score">${matchPercentage}%</span>
           </div>
           <div class="chip-row">${chipValues || '<span class="chip muted-card">No feature values</span>'}</div>
+          ${urlLink}
         </article>
       `;
     })
