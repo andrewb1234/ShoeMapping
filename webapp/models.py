@@ -40,12 +40,17 @@ class RecommendationRequest(BaseModel):
 
 
 class RecommendationResponse(BaseModel):
-    query: str
+    query: Optional[str] = None
+    query_shoe: Optional[str] = None
+    query_shoe_id: Optional[str] = None
     terrain: str
-    matched_shoe: Dict[str, Any]
-    recommendations: List[Dict[str, Any]]
-    cluster_label: int
-    cluster_size: int
-    cluster_center: Dict[str, Optional[float]]
-    feature_names: List[str]
-    n_clusters: int
+    matched_shoe: Optional[Dict[str, Any]] = None
+    recommendations: List[Dict[str, Any]] = Field(default_factory=list)
+    algorithm: Optional[str] = None
+    cluster_label: Optional[int] = None
+    cluster_size: Optional[int] = None
+    cluster_center: Optional[Dict[str, Optional[float]]] = None
+    feature_names: Optional[List[str]] = None
+    n_clusters: Optional[int] = None
+    error: Optional[str] = None
+    suggestions: Optional[List[str]] = None

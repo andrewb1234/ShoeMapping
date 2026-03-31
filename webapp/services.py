@@ -2,16 +2,10 @@ from __future__ import annotations
 
 import json
 import logging
-import sqlite3
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
-# Try to import the supervised matching service
-try:
-    from supervised_matching_service import get_matching_service
-    SUPERVISED_MATCHING_AVAILABLE = True
-except ImportError:
-    SUPERVISED_MATCHING_AVAILABLE = False
+DEFAULT_RECOMMENDATIONS_PATH = Path("data/precomputed_recommendations.json")
 
 logger = logging.getLogger(__name__)
 
@@ -127,42 +121,35 @@ class ShoeCatalogService:
 
 
 class ShoeRecommendationService:
-    """Wrap the clustering engine behind a reusable service API.
-    
-    Now supports both the original K-means clustering and the new supervised
-    learning approach using XGBoost similarity predictions.
+    """Serve pre-computed shoe recommendations from a static JSON file.
+
+    At deploy-time this avoids importing heavy ML libraries (scikit-learn,
+    xgboost) and keeps the Vercel Lambda well under the 500 MB size limit.
     """
 
-    def __init__(self, catalog_service: Optional[ShoeCatalogService] = None) -> None:
+    def __init__(
+        self,
+        catalog_service: Optional[ShoeCatalogService] = None,
+        recommendations_path: Path | str = DEFAULT_RECOMMENDATIONS_PATH,
+    ) -> None:
         self.catalog_service = catalog_service or ShoeCatalogService()
-        self._clusterers: Dict[Tuple[str, int], Any] = {}
-        
-        # Initialize supervised matching service if available
-        if SUPERVISED_MATCHING_AVAILABLE:
-            try:
-                self.supervised_service = get_matching_service()
-                logger.info("Using supervised matching algorithm")
-            except Exception as e:
-                logger.warning(f"Failed to initialize supervised matching: {e}. Falling back to K-means.")
-                self.supervised_service = None
-        else:
-            self.supervised_service = None
+        self.recommendations_path = Path(recommendations_path)
+        self._recs: Optional[Dict[str, List[Dict[str, Any]]]] = None
 
-    def _get_clusterer(self, terrain_filter: Optional[str], n_clusters: int, n_neighbors: int) -> Any:
-        cache_key = (terrain_response_value(terrain_filter), max(1, n_clusters))
-        clusterer = self._clusterers.get(cache_key)
-        if clusterer is None:
-            from shoe_clustering import ShoeKMeansClusterer
-
-            clusterer = ShoeKMeansClusterer(
-                n_clusters=max(1, n_clusters),
-                n_neighbors=max(1, n_neighbors),
-                terrain_filter=terrain_filter,
+    def _load_recommendations(self) -> Dict[str, List[Dict[str, Any]]]:
+        if self._recs is None:
+            if not self.recommendations_path.exists():
+                raise FileNotFoundError(
+                    f"Precomputed recommendations not found: {self.recommendations_path}. "
+                    "Run `python precompute_recommendations.py` first."
+                )
+            with open(self.recommendations_path, "r", encoding="utf-8") as f:
+                self._recs = json.load(f)
+            logger.info(
+                "Loaded precomputed recommendations for %d shoes",
+                len(self._recs),
             )
-            self._clusterers[cache_key] = clusterer
-        else:
-            clusterer.n_neighbors = max(1, n_neighbors)
-        return clusterer
+        return self._recs
 
     def recommend(
         self,
@@ -174,96 +161,49 @@ class ShoeRecommendationService:
         use_supervised: Optional[bool] = None,
         rejected: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Get shoe recommendations using either supervised or K-means approach.
-        
-        Args:
-            shoe_name: Name of the shoe to find alternatives for
-            terrain: Filter by terrain (Road/Trail/Both)
-            n_neighbors: Number of recommendations to return
-            n_clusters: Number of clusters for K-means (ignored if supervised)
-            shoe_id: Optional shoe ID (used internally)
-            use_supervised: Force using supervised (True) or K-means (False). 
-                          If None, uses supervised if available.
-            rejected: List of shoe IDs to exclude from recommendations
+        """Return pre-computed recommendations for a shoe.
+
+        Parameters kept for API compatibility with the previous ML-backed
+        implementation.  ``n_clusters`` and ``use_supervised`` are accepted
+        but ignored.
         """
-        
-        # Initialize rejected list
         rejected = rejected or []
-        
-        # Decide which algorithm to use
-        should_use_supervised = use_supervised if use_supervised is not None else (self.supervised_service is not None)
-        
-        if should_use_supervised and self.supervised_service:
-            # Use supervised matching
-            try:
-                result = self.supervised_service.get_recommendations(
-                    shoe_name=shoe_name,
-                    top_k=n_neighbors + len(rejected),  # Request more to account for rejected
-                    terrain=terrain,
-                    exclude_same_brand=False
-                )
-                
-                # Format result to match expected structure
-                if 'error' in result:
-                    return {
-                        'error': result['error'],
-                        'suggestions': result.get('suggestions', []),
-                        'terrain': terrain_response_value(terrain),
-                    }
-                
-                # Convert recommendations to expected format
-                recommendations = []
-                for rec in result.get('recommendations', []):
-                    # Skip if this shoe is in the rejected list
-                    if rec['shoe_id'] in rejected:
-                        continue
-                    
-                    # Get full shoe details from catalog
-                    shoe_details = self.catalog_service.get_shoe_by_id(rec['shoe_id'])
-                    if shoe_details:
-                        recommendations.append({
-                            'shoe_id': rec['shoe_id'],
-                            'shoe_name': shoe_details['shoe_name'],
-                            'brand': shoe_details['brand'],
-                            'display_name': shoe_details['display_name'],
-                            'similarity_score': rec['similarity_score'],
-                            'terrain': shoe_details['terrain'],
-                            'audience_verdict': shoe_details['audience_verdict'],
-                            'source_url': shoe_details['source_url'],  # Add source_url for review link
-                        })
-                    
-                    # Stop once we have enough recommendations
-                    if len(recommendations) >= n_neighbors:
-                        break
-                
-                return {
-                    **result,  # Include all fields from supervised service
-                    'recommendations': recommendations,  # Override with formatted recommendations
-                    'terrain': terrain_response_value(terrain),
-                }
-                
-            except Exception as e:
-                logger.error(f"Supervised matching failed: {e}. Falling back to K-means.")
-                should_use_supervised = False
-        
-        # Use K-means clustering (original approach)
         terrain_filter = normalize_terrain_selection(terrain)
-        clusterer = self._get_clusterer(terrain_filter, n_clusters=n_clusters, n_neighbors=n_neighbors)
-        result = clusterer.recommend(shoe_name, n_neighbors=n_neighbors + len(rejected), shoe_id=shoe_id)
-        
-        # Filter out rejected shoes
-        filtered_recommendations = []
-        for rec in result.get("nearest_shoes", []):
-            if rec.get("shoe_id") not in rejected:
-                filtered_recommendations.append(rec)
-            if len(filtered_recommendations) >= n_neighbors:
+
+        # Resolve shoe_id when only a name is provided
+        if not shoe_id:
+            shoe_id = self._resolve_shoe_id(shoe_name)
+            if not shoe_id:
+                return {
+                    "error": f"Shoe not found: {shoe_name}",
+                    "suggestions": [],
+                    "terrain": terrain_response_value(terrain_filter),
+                }
+
+        recs_map = self._load_recommendations()
+        stored = recs_map.get(shoe_id, [])
+
+        # Filter by terrain and rejected list
+        filtered: List[Dict[str, Any]] = []
+        for rec in stored:
+            if rec["shoe_id"] in rejected:
+                continue
+            if terrain_filter and normalize_text(rec.get("terrain")) != normalize_text(terrain_filter):
+                continue
+            filtered.append(rec)
+            if len(filtered) >= n_neighbors:
                 break
-        
+
+        query_shoe = self.catalog_service.get_shoe_by_id(shoe_id)
+
         return {
-            **result,
+            "query": query_shoe.get("display_name", shoe_name) if query_shoe else shoe_name,
+            "query_shoe": query_shoe.get("display_name", shoe_name) if query_shoe else shoe_name,
+            "query_shoe_id": shoe_id,
+            "matched_shoe": query_shoe or {},
             "terrain": terrain_response_value(terrain_filter),
-            "recommendations": filtered_recommendations,
-            "algorithm": "kmeans",
+            "recommendations": filtered,
+            "algorithm": "supervised_precomputed",
         }
 
     def recommend_by_shoe_id(
@@ -285,3 +225,15 @@ class ShoeRecommendationService:
             shoe_id=shoe_id,
             rejected=rejected,
         )
+
+    # ------------------------------------------------------------------
+    def _resolve_shoe_id(self, shoe_name: str) -> Optional[str]:
+        """Best-effort name → shoe_id lookup via the catalog."""
+        target = normalize_text(shoe_name)
+        for shoe in self.catalog_service._load_catalog():
+            candidate = normalize_text(
+                f"{shoe.get('brand', '')} {shoe.get('shoe_name', '')}"
+            )
+            if target == candidate or target in candidate or candidate in target:
+                return shoe["shoe_id"]
+        return None

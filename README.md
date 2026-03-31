@@ -166,6 +166,44 @@ Open `http://127.0.0.1:8000` in your browser.
 - `Road` and `Trail` filter both the dropdown and the clustering dataset.
 - `Both` means no terrain filter is sent to clustering.
 
+## Vercel Deployment
+
+The web app is deployed on Vercel as a serverless function. To keep the Lambda
+under the 500 MB size limit, **all shoe recommendations are pre-computed** into
+a static JSON file. The heavy ML libraries (scikit-learn, xgboost, pandas, etc.)
+are **not** installed at runtime on Vercel.
+
+### How it works
+1. `data/shoes.catalog.json` — compact shoe metadata (generated from SQLite).
+2. `data/precomputed_recommendations.json` — top-15 similar shoes per shoe,
+   pre-computed with the supervised XGBoost model (~2.5 MB).
+3. The FastAPI app reads both JSON files at startup — no ML inference at runtime.
+
+### Regenerating pre-computed data
+
+After crawling new shoes or retraining the model, regenerate the deployment data:
+
+```bash
+source env/bin/activate
+pip install -r requirements-full.txt   # full ML deps needed for generation
+
+# 1. Regenerate the shoe catalog from SQLite
+python generate_catalog.py
+
+# 2. Re-compute recommendations (takes ~10 min for 641 shoes)
+python precompute_recommendations.py
+
+# 3. Commit and push to trigger Vercel redeploy
+git add data/shoes.catalog.json data/precomputed_recommendations.json
+git commit -m "Regenerate pre-computed recommendations"
+git push
+```
+
+### Dependency files
+- `requirements.txt` — slim runtime deps for Vercel (fastapi, jinja2, uvicorn).
+- `requirements-full.txt` — all dependencies including ML libraries for local
+  development, training, and pre-computation.
+
 ## Notes
 
 - URL discovery: Sitemap → Catalog pages → Individual shoe pages

@@ -34,7 +34,7 @@ data/*.pkl
 
 # Exceptions for Vercel deployment
 !data/shoes.catalog.json
-!data/supervised_shoe_matcher.pkl
+!data/precomputed_recommendations.json
 
 # Logs
 *.log
