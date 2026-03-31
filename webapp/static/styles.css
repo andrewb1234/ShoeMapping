@@ -6,8 +6,8 @@
   --text-primary: #000000;
   --text-secondary: #333333;
   --text-muted: #666666;
-  --accent-tactical: #9dff00;
-  --accent-tactical-dim: #7bcc00;
+  --accent-tactical: #2d5a3d;
+  --accent-tactical-dim: #1e3d29;
   --grid-line: #000000;
   --grid-line-dim: #cccccc;
   
@@ -297,6 +297,7 @@ body::before {
   font-weight: 700;
   letter-spacing: 0.05em;
   text-transform: uppercase;
+  display: none; /* Hide status indicator */
 }
 
 /* Results Section */
@@ -446,6 +447,7 @@ body::before {
   letter-spacing: -0.02em;
   cursor: pointer;
   transition: all 180ms ease;
+  z-index: 10;
 }
 
 .match-readout:hover {
@@ -459,6 +461,10 @@ body::before {
   letter-spacing: -0.03em;
   margin: 0 0 4px;
   line-height: 1;
+  padding-right: 100px; /* Add padding to avoid percentage overlap */
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .card-subtitle {

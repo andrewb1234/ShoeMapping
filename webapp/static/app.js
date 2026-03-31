@@ -41,8 +41,9 @@ function escapeHtml(value) {
 }
 
 function setStatus(message, variant = "normal") {
-  statusPill.textContent = message.toUpperCase();
-  statusPill.classList.toggle("error-state", variant === "error");
+  // Status popups removed - no longer showing status messages
+  // statusPill.textContent = message.toUpperCase();
+  // statusPill.classList.toggle("error-state", variant === "error");
 }
 
 function setLoading(isLoading) {
@@ -75,7 +76,7 @@ function formatMetricValue(value, key) {
 function generateRadarChart(metrics, size = 200) {
   const centerX = size / 2;
   const centerY = size / 2;
-  const radius = size / 2 - 20;
+  const radius = size / 2 - 30; // Increased padding
   const angles = 5; // Number of metrics
   const angleStep = (Math.PI * 2) / angles;
   
@@ -116,17 +117,22 @@ function generateRadarChart(metrics, size = 200) {
     points.push(`${x},${y}`);
   }
   
-  svg += `<polygon points="${points.join(' ')}" fill="#9dff00" fill-opacity="0.3" stroke="#9dff00" stroke-width="2"/>`;
+  svg += `<polygon points="${points.join(' ')}" fill="#2d5a3d" fill-opacity="0.3" stroke="#2d5a3d" stroke-width="2"/>`;
   
-  // Draw labels
+  // Draw labels with better positioning
   for (let i = 0; i < angles; i++) {
     const angle = angleStep * i - Math.PI / 2;
-    const labelRadius = radius + 15;
+    const labelRadius = radius + 25; // Increased label radius
     const x = centerX + Math.cos(angle) * labelRadius;
     const y = centerY + Math.sin(angle) * labelRadius;
     
-    svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" 
-                  font-family="Roboto Mono" font-size="10" font-weight="700" fill="#666666">
+    // Adjust text anchor based on position
+    let textAnchor = "middle";
+    if (x < centerX - 10) textAnchor = "end";
+    else if (x > centerX + 10) textAnchor = "start";
+    
+    svg += `<text x="${x}" y="${y}" text-anchor="${textAnchor}" dominant-baseline="middle" 
+                  font-family="Roboto Mono" font-size="9" font-weight="700" fill="#666666">
               ${metricNames[i]}
             </text>`;
   }
@@ -156,7 +162,12 @@ function renderMatchedShoe(shoe, result) {
   if (!shoe) {
     matchesFound.textContent = "—";
     audienceMetric.style.display = "none";
-    anchorRadar.innerHTML = generateRadarChart({});
+    // Remove radar chart and replace with simple card
+    anchorRadar.innerHTML = `
+      <div style="display: flex; align-items: center; justify-content: center; height: 160px; background: var(--bg-canvas-warm); border: 2px solid var(--grid-line); color: var(--text-muted); font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600;">
+        SELECT A SHOE TO VIEW ANALYSIS
+      </div>
+    `;
     return;
   }
 
@@ -170,9 +181,39 @@ function renderMatchedShoe(shoe, result) {
     audienceMetric.style.display = "none";
   }
   
-  // Generate radar chart for the shoe
-  const metrics = extractMetricsFromShoe(shoe);
-  anchorRadar.innerHTML = generateRadarChart(metrics);
+  // Replace radar chart with simple card showing key metrics
+  const featureValues = shoe.feature_values || {};
+  anchorRadar.innerHTML = `
+    <div style="background: var(--bg-canvas-warm); border: 2px solid var(--grid-line); padding: 24px; height: 160px; display: flex; flex-direction: column; justify-content: space-between;">
+      <div>
+        <div style="font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 12px;">
+          PERFORMANCE PROFILE
+        </div>
+        <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+          ${featureValues.Drop ? `
+            <div style="font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">
+              DROP: ${formatMetricValue(featureValues.Drop, 'Drop')}
+            </div>
+          ` : ''}
+          ${featureValues.Weight ? `
+            <div style="font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">
+              WEIGHT: ${formatMetricValue(featureValues.Weight, 'Weight')}
+            </div>
+          ` : ''}
+          ${shoe.terrain ? `
+            <div style="font-family: var(--font-mono); font-size: 0.9rem; font-weight: 600; color: var(--text-primary);">
+              TERRAIN: ${shoe.terrain.toUpperCase()}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+      ${shoe.source_url ? `
+        <a href="${escapeHtml(shoe.source_url)}" target="_blank" rel="noopener noreferrer" class="review-link" style="margin-top: auto;">
+          VIEW FULL REPORT →
+        </a>
+      ` : ''}
+    </div>
+  `;
 }
 
 function convertDistanceToMatchPercentage(distance, similarityScore) {
@@ -210,13 +251,8 @@ function renderRecommendations(items) {
       
       return `
         <article class="recommendation-card" data-shoe-id="${escapeHtml(item.shoe_id || '')}" data-index="${index}">
-          <div class="card-visualization">
-            <div class="radar-chart">
-              ${generateRadarChart(metrics, 160)}
-            </div>
-            <div class="match-readout" onclick="showStatistics('${escapeHtml(item.shoe_id || '')}')" title="View detailed statistics">
-              ${matchPercentage}%
-            </div>
+          <div class="match-readout" onclick="showStatistics('${escapeHtml(item.shoe_id || '')}')" title="View detailed statistics">
+            ${matchPercentage}%
           </div>
           
           <h4 class="card-title">${escapeHtml(item.shoe_name || item.display_name || '').toUpperCase()}</h4>
@@ -224,10 +260,10 @@ function renderRecommendations(items) {
           
           <div class="card-data-tags">
             ${terrain ? `
-              <span class="data-tag">[ TRN: ${terrain.toUpperCase()} ]</span>
+              <span class="data-tag">[ TERRAIN: ${terrain.toUpperCase()} ]</span>
             ` : ''}
             ${audienceScore ? `
-              <span class="data-tag">[ SCR: ${audienceScore}/100 ]</span>
+              <span class="data-tag">[ SCORE: ${audienceScore}/100 ]</span>
             ` : ''}
             ${featureValues.Drop ? `
               <span class="data-tag">[ DROP: ${formatMetricValue(featureValues.Drop, 'Drop')} ]</span>
@@ -443,13 +479,8 @@ async function replaceShoe(shoeId, index) {
       replacementCard.dataset.shoeId = replacementShoe.shoe_id;
       replacementCard.dataset.index = index;
       replacementCard.innerHTML = `
-        <div class="card-visualization">
-          <div class="radar-chart">
-            ${generateRadarChart(metrics, 160)}
-          </div>
-          <div class="match-readout" onclick="showStatistics('${escapeHtml(replacementShoe.shoe_id || '')}')" title="View detailed statistics">
-            ${matchPercentage}%
-          </div>
+        <div class="match-readout" onclick="showStatistics('${escapeHtml(replacementShoe.shoe_id || '')}')" title="View detailed statistics">
+          ${matchPercentage}%
         </div>
         
         <h4 class="card-title">${escapeHtml(replacementShoe.shoe_name || replacementShoe.display_name || '').toUpperCase()}</h4>
@@ -457,10 +488,10 @@ async function replaceShoe(shoeId, index) {
         
         <div class="card-data-tags">
           ${terrain ? `
-            <span class="data-tag">[ TRN: ${terrain.toUpperCase()} ]</span>
+            <span class="data-tag">[ TERRAIN: ${terrain.toUpperCase()} ]</span>
           ` : ''}
           ${audienceScore ? `
-            <span class="data-tag">[ SCR: ${audienceScore}/100 ]</span>
+            <span class="data-tag">[ SCORE: ${audienceScore}/100 ]</span>
           ` : ''}
           ${featureValues.Drop ? `
             <span class="data-tag">[ DROP: ${formatMetricValue(featureValues.Drop, 'Drop')} ]</span>
