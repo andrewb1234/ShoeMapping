@@ -252,7 +252,7 @@ function renderRecommendations(items) {
       return `
         <article class="recommendation-card" data-shoe-id="${escapeHtml(item.shoe_id || '')}" data-index="${index}">
           <div class="match-readout" onclick="showStatistics('${escapeHtml(item.shoe_id || '')}')" title="View detailed statistics">
-            ${matchPercentage}%
+            <span title="Similarity Rating">${matchPercentage}%</span>
           </div>
           
           <h4 class="card-title">${escapeHtml(item.shoe_name || item.display_name || '').toUpperCase()}</h4>
@@ -480,7 +480,7 @@ async function replaceShoe(shoeId, index) {
       replacementCard.dataset.index = index;
       replacementCard.innerHTML = `
         <div class="match-readout" onclick="showStatistics('${escapeHtml(replacementShoe.shoe_id || '')}')" title="View detailed statistics">
-          ${matchPercentage}%
+          <span title="Similarity Rating">${matchPercentage}%</span>
         </div>
         
         <h4 class="card-title">${escapeHtml(replacementShoe.shoe_name || replacementShoe.display_name || '').toUpperCase()}</h4>
