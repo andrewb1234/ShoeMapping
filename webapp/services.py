@@ -198,6 +198,7 @@ class ShoeRecommendationService:
         n_clusters: int = 8,
         shoe_id: Optional[str] = None,
         use_supervised: Optional[bool] = None,
+        rejected: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         """Get shoe recommendations using either supervised or K-means approach.
         
@@ -209,7 +210,11 @@ class ShoeRecommendationService:
             shoe_id: Optional shoe ID (used internally)
             use_supervised: Force using supervised (True) or K-means (False). 
                           If None, uses supervised if available.
+            rejected: List of shoe IDs to exclude from recommendations
         """
+        
+        # Initialize rejected list
+        rejected = rejected or []
         
         # Decide which algorithm to use
         should_use_supervised = use_supervised if use_supervised is not None else (self.supervised_service is not None)
@@ -219,7 +224,7 @@ class ShoeRecommendationService:
             try:
                 result = self.supervised_service.get_recommendations(
                     shoe_name=shoe_name,
-                    top_k=n_neighbors,
+                    top_k=n_neighbors + len(rejected),  # Request more to account for rejected
                     terrain=terrain,
                     exclude_same_brand=False
                 )
@@ -235,6 +240,10 @@ class ShoeRecommendationService:
                 # Convert recommendations to expected format
                 recommendations = []
                 for rec in result.get('recommendations', []):
+                    # Skip if this shoe is in the rejected list
+                    if rec['shoe_id'] in rejected:
+                        continue
+                    
                     # Get full shoe details from catalog
                     shoe_details = self.catalog_service.get_shoe_by_id(rec['shoe_id'])
                     if shoe_details:
@@ -248,6 +257,10 @@ class ShoeRecommendationService:
                             'audience_verdict': shoe_details['audience_verdict'],
                             'source_url': shoe_details['source_url'],  # Add source_url for review link
                         })
+                    
+                    # Stop once we have enough recommendations
+                    if len(recommendations) >= n_neighbors:
+                        break
                 
                 return {
                     **result,  # Include all fields from supervised service
@@ -262,11 +275,20 @@ class ShoeRecommendationService:
         # Use K-means clustering (original approach)
         terrain_filter = normalize_terrain_selection(terrain)
         clusterer = self._get_clusterer(terrain_filter, n_clusters=n_clusters, n_neighbors=n_neighbors)
-        result = clusterer.recommend(shoe_name, n_neighbors=n_neighbors, shoe_id=shoe_id)
+        result = clusterer.recommend(shoe_name, n_neighbors=n_neighbors + len(rejected), shoe_id=shoe_id)
+        
+        # Filter out rejected shoes
+        filtered_recommendations = []
+        for rec in result.get("nearest_shoes", []):
+            if rec.get("shoe_id") not in rejected:
+                filtered_recommendations.append(rec)
+            if len(filtered_recommendations) >= n_neighbors:
+                break
+        
         return {
             **result,
             "terrain": terrain_response_value(terrain_filter),
-            "recommendations": result["nearest_shoes"],
+            "recommendations": filtered_recommendations,
             "algorithm": "kmeans",
         }
 
@@ -276,6 +298,7 @@ class ShoeRecommendationService:
         terrain: Optional[str] = None,
         n_neighbors: int = 5,
         n_clusters: int = 8,
+        rejected: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
         shoe = self.catalog_service.get_shoe_by_id(shoe_id)
         if not shoe:
@@ -286,4 +309,5 @@ class ShoeRecommendationService:
             n_neighbors=n_neighbors,
             n_clusters=n_clusters,
             shoe_id=shoe_id,
+            rejected=rejected,
         )

@@ -80,6 +80,7 @@ def recommend_shoes(
                 terrain=payload.terrain,
                 n_neighbors=payload.n_neighbors,
                 n_clusters=payload.n_clusters,
+                rejected=payload.rejected,
             )
         else:
             result = recommendation_service.recommend(
@@ -87,6 +88,7 @@ def recommend_shoes(
                 terrain=payload.terrain,
                 n_neighbors=payload.n_neighbors,
                 n_clusters=payload.n_clusters,
+                rejected=payload.rejected,
             )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -94,3 +96,44 @@ def recommend_shoes(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
 
     return RecommendationResponse(**result)
+
+
+@app.get("/api/shoe/{shoe_id}/statistics")
+def get_shoe_statistics(
+    shoe_id: str,
+    catalog_service: ShoeCatalogService = Depends(get_catalog_service),
+) -> dict:
+    """Get detailed statistics for a specific shoe."""
+    shoe = catalog_service.get_shoe_by_id(shoe_id)
+    if not shoe:
+        raise HTTPException(status_code=404, detail="Shoe not found")
+    
+    # Fetch the raw lab test results
+    import sqlite3
+    from pathlib import Path
+    from webapp.services import safe_json_loads
+    
+    db_path = Path(__file__).resolve().parent.parent / "data" / "runrepeat_lab_tests.sqlite"
+    with sqlite3.connect(db_path) as conn:
+        cursor = conn.execute(
+            """
+            SELECT lab_test_results
+            FROM shoes
+            WHERE shoe_id = ?
+            """,
+            (shoe_id,),
+        )
+        row = cursor.fetchone()
+    
+    if not row:
+        raise HTTPException(status_code=404, detail="Shoe data not found")
+    
+    lab_results = safe_json_loads(row[0])
+    
+    return {
+        "shoe_id": shoe["shoe_id"],
+        "shoe_name": shoe["shoe_name"],
+        "brand": shoe["brand"],
+        "audience_verdict": shoe["audience_verdict"],
+        "lab_test_results": lab_results,
+    }

@@ -16,10 +16,7 @@ const matchButton = document.getElementById("match-button");
 const statusPill = document.getElementById("status-pill");
 const matchedTitle = document.getElementById("matched-title");
 const matchedSubtitle = document.getElementById("matched-subtitle");
-const matchesFound = document.getElementById("matches-found");
-const audienceMetric = document.getElementById("audience-metric");
-const audienceScore = document.getElementById("audience-score");
-const anchorRadar = document.getElementById("anchor-radar");
+const anchorStats = document.getElementById("anchor-stats");
 const recommendations = document.getElementById("recommendations");
 
 // Modal Elements
@@ -41,14 +38,14 @@ function escapeHtml(value) {
 }
 
 function setStatus(message, variant = "normal") {
-  statusPill.textContent = message.toUpperCase();
+  statusPill.textContent = message;
   statusPill.classList.toggle("error-state", variant === "error");
 }
 
 function setLoading(isLoading) {
   matchButton.disabled = isLoading || shoeSelect.disabled;
   document.body.classList.toggle("loading", isLoading);
-  matchButton.textContent = isLoading ? "ANALYZING…" : "Find Matches";
+  matchButton.textContent = isLoading ? "Matching…" : "Find Matches";
 }
 
 function formatMetricValue(value, key) {
@@ -63,7 +60,7 @@ function formatMetricValue(value, key) {
     } else if (key === "Drop" || key === "Heel stack" || key === "Forefoot stack") {
       return formattedValue + "mm";
     } else if (key === "Torsional rigidity") {
-      const rigidityLevel = value <= 2 ? "FLEXIBLE" : value <= 3 ? "MODERATE" : "STIFF";
+      const rigidityLevel = value <= 2 ? "(Flexible)" : value <= 3 ? "(Moderate)" : "(Stiff)";
       return `${formattedValue}/5 ${rigidityLevel}`;
     }
     return formattedValue;
@@ -71,108 +68,50 @@ function formatMetricValue(value, key) {
   return String(value);
 }
 
-// Radar Chart Generation
-function generateRadarChart(metrics, size = 200) {
-  const centerX = size / 2;
-  const centerY = size / 2;
-  const radius = size / 2 - 20;
-  const angles = 5; // Number of metrics
-  const angleStep = (Math.PI * 2) / angles;
-  
-  // Define the metrics and their positions
-  const metricNames = ['CUSHION', 'RESPONSIVE', 'WEIGHT', 'GRIP', 'DURABILITY'];
-  const metricValues = [
-    metrics.cushion || 0.5,
-    metrics.responsiveness || 0.5,
-    metrics.weight || 0.5,
-    metrics.grip || 0.5,
-    metrics.durability || 0.5
-  ];
-  
-  let svg = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">`;
-  
-  // Draw grid circles
-  for (let i = 1; i <= 5; i++) {
-    const r = (radius / 5) * i;
-    svg += `<circle cx="${centerX}" cy="${centerY}" r="${r}" fill="none" stroke="#cccccc" stroke-width="1"/>`;
+function getTerrainIcon(terrain) {
+  if (terrain === "Road") {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="12" x2="20" y2="12"></line></svg>';
+  } else if (terrain === "Trail") {
+    return '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 7h8l-1 9H4l-1-9h8"></path><path d="M8 12v-2l2-2 2 2v2"></path></svg>';
   }
-  
-  // Draw axes
-  for (let i = 0; i < angles; i++) {
-    const angle = angleStep * i - Math.PI / 2;
-    const x = centerX + Math.cos(angle) * radius;
-    const y = centerY + Math.sin(angle) * radius;
-    svg += `<line x1="${centerX}" y1="${centerY}" x2="${x}" y2="${y}" stroke="#cccccc" stroke-width="1"/>`;
-  }
-  
-  // Draw data polygon
-  let points = [];
-  for (let i = 0; i < angles; i++) {
-    const angle = angleStep * i - Math.PI / 2;
-    const value = metricValues[i];
-    const r = radius * value;
-    const x = centerX + Math.cos(angle) * r;
-    const y = centerY + Math.sin(angle) * r;
-    points.push(`${x},${y}`);
-  }
-  
-  svg += `<polygon points="${points.join(' ')}" fill="#9dff00" fill-opacity="0.3" stroke="#9dff00" stroke-width="2"/>`;
-  
-  // Draw labels
-  for (let i = 0; i < angles; i++) {
-    const angle = angleStep * i - Math.PI / 2;
-    const labelRadius = radius + 15;
-    const x = centerX + Math.cos(angle) * labelRadius;
-    const y = centerY + Math.sin(angle) * labelRadius;
-    
-    svg += `<text x="${x}" y="${y}" text-anchor="middle" dominant-baseline="middle" 
-                  font-family="Roboto Mono" font-size="10" font-weight="700" fill="#666666">
-              ${metricNames[i]}
-            </text>`;
-  }
-  
-  svg += `</svg>`;
-  return svg;
-}
-
-function extractMetricsFromShoe(shoe) {
-  // Extract or derive metrics from shoe data
-  const labResults = shoe.lab_test_results || {};
-  const featureValues = shoe.feature_values || {};
-  
-  return {
-    cushion: Math.random() * 0.8 + 0.2, // Placeholder - would calculate from actual data
-    responsiveness: Math.random() * 0.8 + 0.2,
-    weight: Math.max(0, 1 - (parseFloat(featureValues.Weight || labResults.Weight || 300) / 500)),
-    grip: shoe.terrain === 'Trail' ? 0.8 : 0.4,
-    durability: Math.random() * 0.8 + 0.2
-  };
+  return '';
 }
 
 function renderMatchedShoe(shoe, result) {
-  matchedTitle.textContent = shoe ? shoe.shoe_name.toUpperCase() : "SELECT SHOE";
-  matchedSubtitle.textContent = shoe ? shoe.brand.toUpperCase() : "CHOOSE A MODEL TO BEGIN ANALYSIS";
+  matchedTitle.textContent = shoe ? shoe.shoe_name : "Choose a shoe to begin";
+  matchedSubtitle.textContent = shoe ? shoe.brand : "Select a shoe and click 'Find Matches'";
 
   if (!shoe) {
-    matchesFound.textContent = "—";
-    audienceMetric.style.display = "none";
-    anchorRadar.innerHTML = generateRadarChart({});
+    anchorStats.innerHTML = `
+      <div class="stat-gauge">
+        <div class="gauge-circle" style="--gauge-percent: 0deg">
+          <span class="gauge-value">—</span>
+        </div>
+        <span class="gauge-label">Matches Found</span>
+      </div>
+    `;
     return;
   }
 
   const matchCount = result.recommendations?.length || 0;
-  matchesFound.textContent = matchCount;
+  const audienceScore = shoe.audience_verdict || 0;
   
-  if (shoe.audience_verdict) {
-    audienceScore.textContent = shoe.audience_verdict;
-    audienceMetric.style.display = "block";
-  } else {
-    audienceMetric.style.display = "none";
-  }
-  
-  // Generate radar chart for the shoe
-  const metrics = extractMetricsFromShoe(shoe);
-  anchorRadar.innerHTML = generateRadarChart(metrics);
+  anchorStats.innerHTML = `
+    <div class="stat-gauge">
+      <div class="gauge-circle" style="--gauge-percent: ${Math.min(matchCount * 36, 360)}deg">
+        <span class="gauge-value">${matchCount}</span>
+      </div>
+      <span class="gauge-label">Matches Found</span>
+    </div>
+    ${audienceScore ? `
+    <div class="stat-gauge">
+      <div class="gauge-circle" style="--gauge-percent: ${audienceScore * 3.6}deg">
+        <span class="gauge-value">${audienceScore}</span>
+      </div>
+      <span class="gauge-label">Audience Score</span>
+    </div>
+    ` : ''}
+  `;
 }
 
 function convertDistanceToMatchPercentage(distance, similarityScore) {
@@ -191,7 +130,7 @@ function renderRecommendations(items) {
     recommendations.className = "recommendations-grid empty-state";
     recommendations.innerHTML = `
       <div class="empty-state">
-        <p>NO MATCHES FOUND</p>
+        <p>No recommendations were returned.</p>
       </div>
     `;
     return;
@@ -205,46 +144,44 @@ function renderRecommendations(items) {
       const terrain = item.terrain || featureValues.Terrain;
       const audienceScore = item.audience_verdict;
       
-      // Generate radar chart for this shoe
-      const metrics = extractMetricsFromShoe(item);
-      
       return `
-        <article class="recommendation-card" data-shoe-id="${escapeHtml(item.shoe_id || '')}" data-index="${index}">
-          <div class="card-visualization">
-            <div class="radar-chart">
-              ${generateRadarChart(metrics, 160)}
-            </div>
-            <div class="match-readout" onclick="showStatistics('${escapeHtml(item.shoe_id || '')}')" title="View detailed statistics">
+        <article class="performance-card" data-shoe-id="${escapeHtml(item.shoe_id || '')}" data-index="${index}">
+          <div class="card-image">
+            <span>Shoe Image</span>
+            <div class="match-badge" onclick="showStatistics('${escapeHtml(item.shoe_id || '')}')" title="View detailed statistics">
               ${matchPercentage}%
             </div>
           </div>
-          
-          <h4 class="card-title">${escapeHtml(item.shoe_name || item.display_name || '').toUpperCase()}</h4>
-          <p class="card-subtitle">${escapeHtml(item.brand).toUpperCase()}</p>
-          
-          <div class="card-data-tags">
-            ${terrain ? `
-              <span class="data-tag">[ TRN: ${terrain.toUpperCase()} ]</span>
-            ` : ''}
-            ${audienceScore ? `
-              <span class="data-tag">[ SCR: ${audienceScore}/100 ]</span>
-            ` : ''}
-            ${featureValues.Drop ? `
-              <span class="data-tag">[ DROP: ${formatMetricValue(featureValues.Drop, 'Drop')} ]</span>
-            ` : ''}
-            ${featureValues.Weight ? `
-              <span class="data-tag">[ WT: ${formatMetricValue(featureValues.Weight, 'Weight')} ]</span>
+          <div class="card-content">
+            <h4 class="card-title">${escapeHtml(item.shoe_name || item.display_name || '')}</h4>
+            <p class="card-subtitle">${escapeHtml(item.brand)}</p>
+            
+            <div class="card-tags">
+              ${terrain ? `
+                <span class="tag ${terrain === 'Road' ? 'terrain-road' : 'terrain-trail'}">
+                  ${getTerrainIcon(terrain)} ${terrain}
+                </span>
+              ` : ''}
+              ${audienceScore ? `
+                <span class="tag">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <path d="M12 6v6l4 2"></path>
+                  </svg>
+                  Score: ${audienceScore}
+                </span>
+              ` : ''}
+            </div>
+            
+            ${item.source_url ? `
+              <a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener noreferrer" class="review-link">
+                View Full Review →
+              </a>
             ` : ''}
           </div>
           
-          ${item.source_url ? `
-            <a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener noreferrer" class="review-link">
-              VIEW FULL REPORT →
-            </a>
-          ` : ''}
-          
           <button class="replace-btn" onclick="replaceShoe('${escapeHtml(item.shoe_id || '')}', ${index})" title="Replace this shoe">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <circle cx="12" cy="12" r="10"></circle>
               <line x1="8" y1="8" x2="16" y2="16"></line>
               <line x1="16" y1="8" x2="8" y2="16"></line>
@@ -260,7 +197,7 @@ function populateBrandOptions(brands, selectedBrand = null) {
   brandSelect.innerHTML = brands
     .map((brand) => {
       const selected = brand === selectedBrand ? "selected" : "";
-      return `<option value="${escapeHtml(brand)}" ${selected}>${escapeHtml(brand).toUpperCase()}</option>`;
+      return `<option value="${escapeHtml(brand)}" ${selected}>${escapeHtml(brand)}</option>`;
     })
     .join("");
 
@@ -279,7 +216,7 @@ function populateShoeOptionsForBrand(brand) {
   shoeSelect.innerHTML = brandShoes
     .map((shoe) => {
       const selected = shoe.shoe_id === state.selectedShoeId ? "selected" : "";
-      return `<option value="${escapeHtml(shoe.shoe_id)}" ${selected}>${escapeHtml(shoe.display_name).toUpperCase()}</option>`;
+      return `<option value="${escapeHtml(shoe.shoe_id)}" ${selected}>${escapeHtml(shoe.display_name)}</option>`;
     })
     .join("");
 
@@ -340,10 +277,10 @@ async function runMatcher() {
   }
 
   setLoading(true);
-  setStatus("Analyzing shoe characteristics…");
+  setStatus("Finding similar shoes…");
   recommendations.innerHTML = `
     <div class="empty-state">
-      <p>PROCESSING ANALYSIS…</p>
+      <p>Analyzing shoe characteristics…</p>
     </div>
   `;
 
@@ -372,14 +309,14 @@ async function runMatcher() {
 
     renderMatchedShoe(matched, result);
     renderRecommendations(result.recommendations || []);
-    setStatus(`Analysis complete: ${result.recommendations?.length || 0} matches found`);
+    setStatus(`Found ${result.recommendations?.length || 0} matches`);
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Analysis failed", "error");
+    setStatus(error.message || "Something went wrong", "error");
     recommendations.className = "recommendations-grid empty-state error-state";
     recommendations.innerHTML = `
       <div class="empty-state">
-        <p>${escapeHtml(error.message || "System error")}</p>
+        <p>${escapeHtml(error.message || "Unexpected error")}</p>
       </div>
     `;
   } finally {
@@ -389,7 +326,7 @@ async function runMatcher() {
 
 async function replaceShoe(shoeId, index) {
   if (!shoeId || !state.currentQuery) {
-    setStatus("Cannot replace shoe - no active analysis", "error");
+    setStatus("Cannot replace shoe - no active search", "error");
     return;
   }
 
@@ -426,7 +363,7 @@ async function replaceShoe(shoeId, index) {
 
     const result = await response.json();
     
-    const currentCards = document.querySelectorAll('.recommendation-card');
+    const currentCards = document.querySelectorAll('.performance-card');
     const currentShoeIds = Array.from(currentCards).map(card => card.dataset.shoeId);
     const replacementShoe = result.recommendations.find(rec => !currentShoeIds.includes(rec.shoe_id));
     
@@ -434,50 +371,48 @@ async function replaceShoe(shoeId, index) {
       const matchPercentage = convertDistanceToMatchPercentage(replacementShoe.distance_to_query, replacementShoe.similarity_score);
       const terrain = replacementShoe.terrain;
       const audienceScore = replacementShoe.audience_verdict;
-      const featureValues = replacementShoe.feature_values || {};
-      
-      const metrics = extractMetricsFromShoe(replacementShoe);
       
       const replacementCard = document.createElement('article');
-      replacementCard.className = 'recommendation-card';
+      replacementCard.className = 'performance-card';
       replacementCard.dataset.shoeId = replacementShoe.shoe_id;
       replacementCard.dataset.index = index;
       replacementCard.innerHTML = `
-        <div class="card-visualization">
-          <div class="radar-chart">
-            ${generateRadarChart(metrics, 160)}
-          </div>
-          <div class="match-readout" onclick="showStatistics('${escapeHtml(replacementShoe.shoe_id || '')}')" title="View detailed statistics">
+        <div class="card-image">
+          <span>Shoe Image</span>
+          <div class="match-badge" onclick="showStatistics('${escapeHtml(replacementShoe.shoe_id || '')}')" title="View detailed statistics">
             ${matchPercentage}%
           </div>
         </div>
-        
-        <h4 class="card-title">${escapeHtml(replacementShoe.shoe_name || replacementShoe.display_name || '').toUpperCase()}</h4>
-        <p class="card-subtitle">${escapeHtml(replacementShoe.brand).toUpperCase()}</p>
-        
-        <div class="card-data-tags">
-          ${terrain ? `
-            <span class="data-tag">[ TRN: ${terrain.toUpperCase()} ]</span>
-          ` : ''}
-          ${audienceScore ? `
-            <span class="data-tag">[ SCR: ${audienceScore}/100 ]</span>
-          ` : ''}
-          ${featureValues.Drop ? `
-            <span class="data-tag">[ DROP: ${formatMetricValue(featureValues.Drop, 'Drop')} ]</span>
-          ` : ''}
-          ${featureValues.Weight ? `
-            <span class="data-tag">[ WT: ${formatMetricValue(featureValues.Weight, 'Weight')} ]</span>
+        <div class="card-content">
+          <h4 class="card-title">${escapeHtml(replacementShoe.shoe_name || replacementShoe.display_name || '')}</h4>
+          <p class="card-subtitle">${escapeHtml(replacementShoe.brand)}</p>
+          
+          <div class="card-tags">
+            ${terrain ? `
+              <span class="tag ${terrain === 'Road' ? 'terrain-road' : 'terrain-trail'}">
+                ${getTerrainIcon(terrain)} ${terrain}
+              </span>
+            ` : ''}
+            ${audienceScore ? `
+              <span class="tag">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M12 6v6l4 2"></path>
+                </svg>
+                Score: ${audienceScore}
+              </span>
+            ` : ''}
+          </div>
+          
+          ${replacementShoe.source_url ? `
+            <a href="${escapeHtml(replacementShoe.source_url)}" target="_blank" rel="noopener noreferrer" class="review-link">
+              View Full Review →
+            </a>
           ` : ''}
         </div>
         
-        ${replacementShoe.source_url ? `
-          <a href="${escapeHtml(replacementShoe.source_url)}" target="_blank" rel="noopener noreferrer" class="review-link">
-            VIEW FULL REPORT →
-          </a>
-        ` : ''}
-        
         <button class="replace-btn" onclick="replaceShoe('${escapeHtml(replacementShoe.shoe_id || '')}', ${index})" title="Replace this shoe">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="10"></circle>
             <line x1="8" y1="8" x2="16" y2="16"></line>
             <line x1="16" y1="8" x2="8" y2="16"></line>
@@ -490,10 +425,10 @@ async function replaceShoe(shoeId, index) {
       }
     }
     
-    setStatus(`Replacement acquired`);
+    setStatus(`Found replacement`);
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "Replacement failed", "error");
+    setStatus(error.message || "Failed to replace shoe", "error");
     
     const index = state.rejectedShoes.indexOf(shoeId);
     if (index > -1) {
@@ -516,7 +451,7 @@ async function showStatistics(shoeId) {
     const data = await response.json();
     const labResults = data.lab_test_results || {};
     
-    statisticsTitle.textContent = `${data.shoe_name.toUpperCase()} - SPECIFICATION SHEET`;
+    statisticsTitle.textContent = `${data.shoe_name} - Detailed Statistics`;
     
     let statsHtml = '';
     
@@ -537,37 +472,37 @@ async function showStatistics(shoeId) {
       { key: 'Stability', label: 'Stability' },
     ];
     
-    // Basic info
     statsHtml += `
-      <div class="stat-item">
-        <div class="stat-label">BRAND</div>
-        <div class="stat-value">${escapeHtml(data.brand).toUpperCase()}</div>
+      <div class="detail-item">
+        <span class="detail-label">Brand</span>
+        <span class="detail-value">${escapeHtml(data.brand)}</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-label">TERRAIN</div>
-        <div class="stat-value">${escapeHtml(labResults.Terrain || 'UNKNOWN').toUpperCase()}</div>
+      <div class="detail-item">
+        <span class="detail-label">Terrain</span>
+        <span class="detail-value">${escapeHtml(labResults.Terrain || '—')}</span>
       </div>
-      <div class="stat-item">
-        <div class="stat-label">AUDIENCE VERDICT</div>
-        <div class="stat-value">${data.audience_verdict ? data.audience_verdict + '/100' : 'N/A'}</div>
+      <div class="detail-item">
+        <span class="detail-label">Audience Verdict</span>
+        <span class="detail-value">${data.audience_verdict ? data.audience_verdict + '/100' : '—'}</span>
       </div>
     `;
     
-    // Lab test results
+    statsHtml += '<div style="grid-column: 1 / -1; height: 1px; background: var(--border-color); margin: 12px 0;"></div>';
+    
     metrics.forEach(metric => {
       const value = labResults[metric.key];
       if (value !== undefined && value !== null) {
         statsHtml += `
-          <div class="stat-item">
-            <div class="stat-label">${escapeHtml(metric.label).toUpperCase()}</div>
-            <div class="stat-value">${escapeHtml(formatMetricValue(value, metric.key)).toUpperCase()}</div>
+          <div class="detail-item">
+            <span class="detail-label">${escapeHtml(metric.label)}</span>
+            <span class="detail-value">${escapeHtml(formatMetricValue(value, metric.key))}</span>
           </div>
         `;
       }
     });
     
-    if (!statsHtml) {
-      statsHtml = '<div class="stat-item"><div class="stat-label">STATUS</div><div class="stat-value">NO DATA AVAILABLE</div></div>';
+    if (!statsHtml.includes('detail-value')) {
+      statsHtml = '<p>No detailed statistics available for this shoe.</p>';
     }
     
     statisticsContent.innerHTML = statsHtml;
@@ -576,7 +511,7 @@ async function showStatistics(shoeId) {
     
   } catch (error) {
     console.error('Error fetching statistics:', error);
-    statisticsContent.innerHTML = '<div class="stat-item"><div class="stat-label">ERROR</div><div class="stat-value">DATA RETRIEVAL FAILED</div></div>';
+    statisticsContent.innerHTML = '<p>Failed to load shoe statistics.</p>';
     statisticsOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
@@ -658,10 +593,10 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
   } catch (error) {
     console.error(error);
-    setStatus(error.message || "System initialization failed", "error");
+    setStatus(error.message || "Failed to initialize", "error");
     recommendations.innerHTML = `
       <div class="empty-state error-state">
-        <p>${escapeHtml(error.message || "CRITICAL SYSTEM FAILURE")}</p>
+        <p>${escapeHtml(error.message || "Failed to load initial shoe list")}</p>
       </div>
     `;
   }

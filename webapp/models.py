@@ -30,6 +30,7 @@ class RecommendationRequest(BaseModel):
     terrain: Optional[str] = None
     n_neighbors: int = Field(default=5, ge=1, le=20)
     n_clusters: int = Field(default=8, ge=1, le=20)
+    rejected: Optional[List[str]] = Field(default_factory=list, description="List of rejected shoe IDs to exclude")
 
     @model_validator(mode="after")
     def validate_query(self) -> "RecommendationRequest":

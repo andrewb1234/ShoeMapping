@@ -6,134 +6,127 @@
     <title>Shoe Matcher</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700;800;900&family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles.css" />
     <script defer src="/static/app.js"></script>
   </head>
   <body>
     <div class="page-shell">
-      <header class="topbar">
-        <div class="brand">
-          <div class="brand-mark">SM</div>
-          <div>
-            <p class="eyebrow">AI-powered shoe matching</p>
-            <h1>Shoe Matcher</h1>
+      <div class="canvas-container">
+        <div class="grid-overlay"></div>
+        
+        <!-- Header -->
+        <header class="header-section">
+          <div class="brand-section">
+            <div class="brand-mark">SM</div>
+            <h1 class="brand-title">SHOE MATCHER</h1>
           </div>
-        </div>
-        <div class="topbar-actions">
-          <button id="how-it-works-btn" class="how-it-works-btn" aria-label="How it works">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
-              <line x1="12" y1="17" x2="12.01" y2="17"></line>
-            </svg>
-          </button>
-          <p class="topbar-copy">Pick a terrain, choose a shoe, and get similar models from the lab-test dataset.</p>
-        </div>
-      </header>
+          <div class="header-actions">
+            <button id="how-it-works-btn" class="how-it-works-btn" aria-label="How it works">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+                <line x1="12" y1="17" x2="12.01" y2="17"></line>
+              </svg>
+            </button>
+          </div>
+        </header>
 
-      <main class="layout">
-        <section class="hero card">
-          <div>
-            <span class="badge">Trail / Road / Both</span>
-            <h2>Compare shoes with a clean, focused matcher</h2>
-            <p>
-              The list below is driven by the RunRepeat database. Terrain selection updates the dropdown,
-              and the recommendation request uses the same terrain filter unless you choose <strong>Both</strong>.
-            </p>
-          </div>
-          <div class="hero-points">
-            <div class="hero-point">
-              <strong>1.</strong>
-              <span>Select a terrain and shoe.</span>
-            </div>
-            <div class="hero-point">
-              <strong>2.</strong>
-              <span>Our AI analyzes thousands of lab tests to find your perfect match.</span>
-            </div>
-            <div class="hero-point">
-              <strong>3.</strong>
-              <span>Review your top matches.</span>
-            </div>
-          </div>
-        </section>
-
-        <section class="card controls">
-          <div class="section-heading">
-            <div>
-              <p class="section-kicker">Search</p>
-              <h3>Choose your match settings</h3>
-            </div>
-            <span id="status-pill" class="status-pill">Loading shoes…</span>
-          </div>
-
+        <!-- Control Panel -->
+        <section class="control-panel">
+          <div class="status-indicator" id="status-pill">LOADING SHOES…</div>
           <div class="control-grid">
-            <label>
-              Terrain
-              <select id="terrain-select">
-                <option value="Both" selected>Both</option>
-                <option value="Road">Road</option>
-                <option value="Trail">Trail</option>
-              </select>
-            </label>
-
-            <label>
-              Brand
-              <select id="brand-select" disabled>
+            <div class="terrain-controls">
+              <button class="terrain-btn active" data-terrain="Both">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12h18m-9-9v18"></path>
+                </svg>
+                BOTH
+              </button>
+              <button class="terrain-btn" data-terrain="Road">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="4" y1="12" x2="20" y2="12"></line>
+                </svg>
+                ROAD
+              </button>
+              <button class="terrain-btn" data-terrain="Trail">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 7h8l-1 9H4l-1-9h8"></path>
+                  <path d="M8 12v-2l2-2 2 2v2"></path>
+                </svg>
+                TRAIL
+              </button>
+            </div>
+            
+            <div class="control-group">
+              <label class="control-label">Brand</label>
+              <select id="brand-select" class="control-select" disabled>
                 <option>Loading brands…</option>
               </select>
-            </label>
-
-            <label>
-              Shoe
-              <select id="shoe-select" disabled>
+            </div>
+            
+            <div class="control-group">
+              <label class="control-label">Shoe Model</label>
+              <select id="shoe-select" class="control-select" disabled>
                 <option>Select a brand first</option>
               </select>
-            </label>
-
-          </div>
-
-          <div class="action-row">
-            <button id="match-button" class="primary-button" disabled>Find similar shoes</button>
+            </div>
+            
+            <button id="match-button" class="search-button" disabled>Find Matches</button>
           </div>
         </section>
 
-
-        <section class="results-grid">
-          <article class="card results-panel">
-            <div class="section-heading">
-              <div>
-                <p class="section-kicker">Matched shoe</p>
-                <h3 id="matched-title">Choose a shoe to begin</h3>
+        <!-- Results Section -->
+        <main class="results-section">
+          <!-- Anchor Profile -->
+          <article class="anchor-profile">
+            <div class="anchor-header">
+              <div class="anchor-visualization">
+                <div class="radar-chart" id="anchor-radar">
+                  <svg viewBox="0 0 200 200">
+                    <!-- Radar chart will be drawn here -->
+                  </svg>
+                </div>
               </div>
-            </div>
-            <div id="matched-shoe" class="detail-grid empty-state">
-              <p>Select a shoe, choose a terrain, and click <strong>Find similar shoes</strong>.</p>
+              <div class="anchor-info">
+                <h2 id="matched-title" class="anchor-title">SELECT SHOE</h2>
+                <p id="matched-subtitle" class="anchor-subtitle">Choose a model to begin analysis</p>
+                <div class="anchor-metrics">
+                  <div class="metric-readout">
+                    <div class="metric-value" id="matches-found">—</div>
+                    <div class="metric-label">Matches Found</div>
+                  </div>
+                  <div class="metric-readout" id="audience-metric" style="display: none;">
+                    <div class="metric-value" id="audience-score">—</div>
+                    <div class="metric-label">Audience Score</div>
+                  </div>
+                </div>
+              </div>
             </div>
           </article>
 
-          <article class="card results-panel">
-            <div class="section-heading">
-              <div>
-                <p class="section-kicker">Recommendations</p>
-                <h3>Top matches for you</h3>
+          <!-- Recommendations -->
+          <section class="recommendations-section">
+            <div class="recommendations-header">
+              <h3 class="recommendations-title">ANALYSIS RESULTS</h3>
+            </div>
+            <div id="recommendations" class="recommendations-grid empty-state">
+              <div class="empty-state">
+                <p>SELECT A SHOE MODEL TO VIEW MATCH ANALYSIS</p>
               </div>
             </div>
-            <div id="recommendations" class="recommendation-list empty-state">
-              <p>Results will appear here after you run a match.</p>
-            </div>
-          </article>
-        </section>
-      </main>
+          </section>
+        </main>
+      </div>
     </div>
 
     <!-- How It Works Modal -->
     <div id="how-it-works-overlay" class="modal-overlay hidden">
-      <div class="modal-backdrop"></div>
       <div class="modal-content">
         <div class="modal-header">
-          <h2>How Our Shoe Matchmaker Actually Works</h2>
+          <h2 class="modal-title">SYSTEM OVERVIEW</h2>
           <button id="close-modal-btn" class="close-btn" aria-label="Close">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
@@ -141,32 +134,38 @@
         </div>
         <div class="modal-body">
           <div class="prose">
-            <p>Ever wonder how we find the perfect alternative to your favorite running shoe? It takes a bit more than just filtering by brand or "neutral vs. stability." We've built a custom recommendation engine that combines hard statistical data with the intuition of an expert shoe fitter.</p>
+            <p><strong>MISSION BRIEFING:</strong> Advanced shoe matching system utilizing multi-dimensional performance analysis.</p>
             
-            <p>Here is a peek under the hood at how we built it!</p>
+            <h3>DATA ACQUISITION</h3>
+            <p>Comprehensive metric extraction from laboratory testing including cushioning profiles, torsional rigidity, energy return coefficients, and weight distributions.</p>
             
-            <h3>1. The Problem with "Shoe Categories"</h3>
-            <p>Most shoe recommendation tools use basic algorithms that group shoes into rigid boxes (like "Max Cushion Daily Trainer"). The problem with boxes is the "hard boundary." If your favorite shoe sits right on the edge of a box, the algorithm won't recommend a nearly identical shoe simply because it got sorted into the box next door. We wanted to look at shoes as a continuous, mathematical spectrum, not just a set of categories.</p>
+            <h3>ANALYTICAL ENGINE</h3>
+            <p>Machine learning algorithms trained on expert performance ratings to calculate optimal match probabilities based on biomechanical compatibility.</p>
             
-            <h3>2. The Data & The AI "Teacher"</h3>
-            <p>We started with a massive dataset of open-source, objective lab tests. We are talking about exact millimeter measurements for heel drop and stack height, exact grams for weight, and specific foam softness scores.</p>
+            <h3>TACTICAL OUTPUT</h3>
+            <p>Ranked recommendations with match percentages, performance fingerprints, and comparative analysis for informed equipment selection.</p>
             
-            <p>But raw numbers don't tell the whole story—context matters. Moving from an 8mm drop to a 4mm drop feels different than moving the other way around. To capture this human element, we used a highly advanced AI to act as our "Teacher." We fed the AI thousands of random shoe pairings and their lab specs, asking it to score how good of an alternative Shoe B is for a runner who loves Shoe A on a 0-100 scale.</p>
-            
-            <h3>3. Training Our Engine</h3>
-            <p>Once we had tens of thousands of these expert grades, we trained our own lightning-fast matching model (the "Student") to learn the rules.</p>
-            
-            <p>Our engine essentially learned "runner's math." By analyzing the differences between the shoes and the scores the AI gave them, it figured out what runners actually care about. It learned, for example, that a shoe being slightly lighter is usually a bonus, but a massive change in midsole softness is a dealbreaker.</p>
-            
-            <h3>4. The Sanity Check: Testing the AI</h3>
-            <p>We didn't just blindly trust the AI, though! LLMs are great at reasoning, but they can sometimes hallucinate.</p>
-            
-            <p>To prove our engine worked, we ran a strict mathematical evaluation. We compared our new model's predictions against a traditional, geometry-based algorithm (K-Means clustering) that calculates the literal, statistical distance between two shoes. The results? Our new model improved accuracy by over 90% compared to the old baseline. It successfully captured the nuanced, human-like fitting advice of the AI, while proving mathematically that the recommended shoes were physically incredibly similar based on the open-source lab data.</p>
-            
-            <h3>The Result</h3>
-            <p>When you select a shoe on our site, our engine instantly compares it to every other shoe in our database. It calculates the exact physical differences and runs them through our trained model to give you a true Match Percentage.</p>
-            
-            <p>It's basically like having a master shoe fitter who also happens to be a massive math nerd, ready to find your next favorite pair!</p>
+            <p><strong>OPERATIONAL STATUS:</strong> All systems nominal. Ready for mission execution.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Statistics Modal -->
+    <div id="statistics-overlay" class="modal-overlay hidden">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 class="modal-title" id="statistics-title">SPECIFICATION SHEET</h2>
+          <button id="close-statistics-btn" class="close-btn" aria-label="Close">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div id="statistics-content" class="stats-grid">
+            <!-- Statistics will be populated here -->
           </div>
         </div>
       </div>
