@@ -25,8 +25,12 @@ Thumbs.db
 # Data files (regenerate from crawler)
 data/*.sqlite
 data/*.json
+data/*.csv
+data/*.pkl
 *.sqlite
 *.json
+*.csv
+*.pkl
 
 # Logs
 *.log

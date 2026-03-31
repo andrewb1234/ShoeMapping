@@ -6,7 +6,13 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from shoe_clustering import DEFAULT_DB_PATH, recommend_similar_shoes
+# Try to import the supervised matching service first
+try:
+    from supervised_matching_service import get_matching_service
+    SUPERVISED_MATCHING_AVAILABLE = True
+except ImportError:
+    SUPERVISED_MATCHING_AVAILABLE = False
+    from shoe_clustering import DEFAULT_DB_PATH, recommend_similar_shoes
 
 logger = logging.getLogger(__name__)
 
@@ -144,12 +150,27 @@ class ShoeCatalogService:
 
 
 class ShoeRecommendationService:
-    """Wrap the clustering engine behind a reusable service API."""
+    """Wrap the clustering engine behind a reusable service API.
+    
+    Now supports both the original K-means clustering and the new supervised
+    learning approach using XGBoost similarity predictions.
+    """
 
     def __init__(self, db_path: Path | str = DEFAULT_DB_PATH, catalog_service: Optional[ShoeCatalogService] = None) -> None:
         self.db_path = Path(db_path)
         self.catalog_service = catalog_service or ShoeCatalogService(db_path)
         self._clusterers: Dict[Tuple[str, int], Any] = {}
+        
+        # Initialize supervised matching service if available
+        if SUPERVISED_MATCHING_AVAILABLE:
+            try:
+                self.supervised_service = get_matching_service()
+                logger.info("Using supervised matching algorithm")
+            except Exception as e:
+                logger.warning(f"Failed to initialize supervised matching: {e}. Falling back to K-means.")
+                self.supervised_service = None
+        else:
+            self.supervised_service = None
 
     def _get_clusterer(self, terrain_filter: Optional[str], n_clusters: int, n_neighbors: int) -> Any:
         cache_key = (terrain_response_value(terrain_filter), max(1, n_clusters))
@@ -175,7 +196,69 @@ class ShoeRecommendationService:
         n_neighbors: int = 5,
         n_clusters: int = 8,
         shoe_id: Optional[str] = None,
+        use_supervised: Optional[bool] = None,
     ) -> Dict[str, Any]:
+        """Get shoe recommendations using either supervised or K-means approach.
+        
+        Args:
+            shoe_name: Name of the shoe to find alternatives for
+            terrain: Filter by terrain (Road/Trail/Both)
+            n_neighbors: Number of recommendations to return
+            n_clusters: Number of clusters for K-means (ignored if supervised)
+            shoe_id: Optional shoe ID (used internally)
+            use_supervised: Force using supervised (True) or K-means (False). 
+                          If None, uses supervised if available.
+        """
+        
+        # Decide which algorithm to use
+        should_use_supervised = use_supervised if use_supervised is not None else (self.supervised_service is not None)
+        
+        if should_use_supervised and self.supervised_service:
+            # Use supervised matching
+            try:
+                result = self.supervised_service.get_recommendations(
+                    shoe_name=shoe_name,
+                    top_k=n_neighbors,
+                    terrain=terrain,
+                    exclude_same_brand=False
+                )
+                
+                # Format result to match expected structure
+                if 'error' in result:
+                    return {
+                        'error': result['error'],
+                        'suggestions': result.get('suggestions', []),
+                        'terrain': terrain_response_value(terrain),
+                    }
+                
+                # Convert recommendations to expected format
+                recommendations = []
+                for rec in result.get('recommendations', []):
+                    # Get full shoe details from catalog
+                    shoe_details = self.catalog_service.get_shoe_by_id(rec['shoe_id'])
+                    if shoe_details:
+                        recommendations.append({
+                            'shoe_id': rec['shoe_id'],
+                            'shoe_name': shoe_details['shoe_name'],
+                            'brand': shoe_details['brand'],
+                            'display_name': shoe_details['display_name'],
+                            'similarity_score': rec['similarity_score'],
+                            'terrain': shoe_details['terrain'],
+                            'audience_verdict': shoe_details['audience_verdict'],
+                        })
+                
+                return {
+                    'matched_shoe': result.get('matched_shoe', {}),
+                    'recommendations': recommendations,
+                    'terrain': terrain_response_value(terrain),
+                    'algorithm': 'supervised_xgboost',
+                }
+                
+            except Exception as e:
+                logger.error(f"Supervised matching failed: {e}. Falling back to K-means.")
+                should_use_supervised = False
+        
+        # Use K-means clustering (original approach)
         terrain_filter = normalize_terrain_selection(terrain)
         clusterer = self._get_clusterer(terrain_filter, n_clusters=n_clusters, n_neighbors=n_neighbors)
         result = clusterer.recommend(shoe_name, n_neighbors=n_neighbors, shoe_id=shoe_id)
@@ -183,6 +266,7 @@ class ShoeRecommendationService:
             **result,
             "terrain": terrain_response_value(terrain_filter),
             "recommendations": result["nearest_shoes"],
+            "algorithm": "kmeans",
         }
 
     def recommend_by_shoe_id(
