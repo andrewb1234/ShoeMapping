@@ -255,6 +255,45 @@ class ShoeKMeansClusterer:
         self._search_keys = self._search_keys.reset_index(drop=True)
         return feature_frame
 
+    def get_preprocessed_data(self) -> tuple[np.ndarray, List[str]]:
+        """Get preprocessed feature matrix and feature names without fitting final model.
+        
+        Returns:
+            Tuple of (scaled_feature_matrix, feature_names)
+        """
+        self._require_ml_dependencies()
+        self.imputer = SimpleImputer(strategy="median")
+        self.scaler = StandardScaler()
+        shoe_rows = self._load_shoe_rows()
+        feature_frame = self._build_feature_frame(shoe_rows)
+        if feature_frame.empty:
+            raise ValueError("No shoes contain enough feature data for clustering.")
+
+        # Check for features with >30% missing values
+        feature_matrix = feature_frame[self.feature_names]
+        missing_counts = feature_matrix.isna().sum()
+        total_shoes = len(feature_matrix)
+        
+        features_to_keep = []
+        for feature in self.feature_names:
+            missing_pct = (missing_counts[feature] / total_shoes) * 100
+            if missing_pct > 30:
+                logger.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values (>30%), excluding from clustering")
+            else:
+                features_to_keep.append(feature)
+        
+        if not features_to_keep:
+            raise ValueError("No features have sufficient data (<30% missing) for clustering")
+        
+        # Update feature names to only include features with sufficient data
+        self.feature_names = features_to_keep
+        feature_matrix = feature_matrix[self.feature_names]
+        
+        imputed = self.imputer.fit_transform(feature_matrix)
+        scaled = self.scaler.fit_transform(imputed)
+        
+        return scaled, self.feature_names
+
     def fit(self) -> "ShoeKMeansClusterer":
         """Load shoes from SQLite and fit the clustering pipeline."""
         self._require_ml_dependencies()

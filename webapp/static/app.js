@@ -8,11 +8,9 @@ const terrainSelect = document.getElementById("terrain-select");
 const shoeSelect = document.getElementById("shoe-select");
 const matchButton = document.getElementById("match-button");
 const neighborsInput = document.getElementById("neighbors-input");
-const clustersInput = document.getElementById("clusters-input");
 const shoeCount = document.getElementById("shoe-count");
 const currentTerrain = document.getElementById("current-terrain");
 const statusPill = document.getElementById("status-pill");
-const clusterStatus = document.getElementById("cluster-status");
 const matchedTitle = document.getElementById("matched-title");
 const matchedShoe = document.getElementById("matched-shoe");
 const recommendations = document.getElementById("recommendations");
@@ -29,8 +27,6 @@ function escapeHtml(value) {
 function setStatus(message, variant = "normal") {
   statusPill.textContent = message;
   statusPill.classList.toggle("error-state", variant === "error");
-  clusterStatus.textContent = message;
-  clusterStatus.classList.toggle("error-state", variant === "error");
 }
 
 function setLoading(isLoading) {
@@ -47,12 +43,24 @@ function currentTerrainSelection() {
   return terrainSelect.value || "Both";
 }
 
-function formatMetricValue(value) {
+function formatMetricValue(value, key) {
   if (value === null || value === undefined || value === "") {
     return "—";
   }
   if (typeof value === "number") {
-    return Number.isInteger(value) ? String(value) : value.toFixed(1);
+    let formattedValue = Number.isInteger(value) ? String(value) : value.toFixed(1);
+    
+    // Add units based on the metric key
+    if (key === "Weight") {
+      return formattedValue + "g";
+    } else if (key === "Drop" || key === "Heel stack" || key === "Forefoot stack") {
+      return formattedValue + "mm";
+    } else if (key === "Torsional rigidity") {
+      // Add context for rigidity (assuming 1-5 scale where higher is stiffer)
+      const rigidityLevel = value <= 2 ? "(Flexible)" : value <= 4 ? "(Moderate)" : "(Stiff)";
+      return `${formattedValue}/5 ${rigidityLevel}`;
+    }
+    return formattedValue;
   }
   return String(value);
 }
@@ -64,7 +72,7 @@ function renderMetricGrid(container, values, keys) {
       (key) => `
         <div class="detail-item">
           <span class="detail-label">${escapeHtml(key)}</span>
-          <span class="detail-value">${escapeHtml(formatMetricValue(values[key]))}</span>
+          <span class="detail-value">${escapeHtml(formatMetricValue(values[key], key))}</span>
         </div>
       `,
     )
@@ -85,10 +93,21 @@ function renderMatchedShoe(shoe, result) {
     Brand: shoe.brand,
     Terrain: shoe.terrain || "—",
     "Audience verdict": shoe.audience_verdict ?? "—",
-    "Cluster label": result.cluster_label,
-    "Cluster size": result.cluster_size,
-    "Nearest shoes": result.recommendations.length,
-  }, ["Brand", "Terrain", "Audience verdict", "Cluster label", "Cluster size", "Nearest shoes"]);
+    "Similar shoes found": result.recommendations.length,
+  }, ["Brand", "Terrain", "Audience verdict", "Similar shoes found"]);
+}
+
+function convertDistanceToMatchPercentage(distance) {
+  // Convert Euclidean distance to match percentage
+  // Distance is in scaled feature space, not normalized 0-1
+  // We'll use a more appropriate scaling: higher distance = lower match
+  console.log(`Raw distance: ${distance}`); // Debug logging
+  const maxReasonableDistance = 10.0; // Adjust based on actual distances
+  const normalizedDistance = Math.min(distance / maxReasonableDistance, 1.0);
+  const matchPercentage = Math.max(0, (1 - normalizedDistance) * 100);
+  const result = Math.round(matchPercentage);
+  console.log(`Converted to ${result}% match`); // Debug logging
+  return result;
 }
 
 function renderRecommendations(items) {
@@ -102,6 +121,7 @@ function renderRecommendations(items) {
   recommendations.innerHTML = items
     .map((item) => {
       const featureValues = item.feature_values || {};
+      const matchPercentage = convertDistanceToMatchPercentage(item.distance_to_query);
       const chipValues = [
         ["Drop", featureValues.Drop],
         ["Heel stack", featureValues["Heel stack"]],
@@ -110,7 +130,7 @@ function renderRecommendations(items) {
         ["Torsional rigidity", featureValues["Torsional rigidity"]],
       ]
         .filter(([, value]) => value !== null && value !== undefined)
-        .map(([label, value]) => `<span class="chip">${escapeHtml(label)}: ${escapeHtml(formatMetricValue(value))}</span>`)
+        .map(([label, value]) => `<span class="chip">${escapeHtml(label)}: ${escapeHtml(formatMetricValue(value, label))}</span>`)
         .join("");
 
       return `
@@ -118,9 +138,9 @@ function renderRecommendations(items) {
           <div class="recommendation-header">
             <div>
               <h4 class="recommendation-title">${escapeHtml(item.shoe_name)}</h4>
-              <p class="recommendation-subtitle">${escapeHtml(item.brand)} · Cluster ${escapeHtml(item.cluster_label)} · Distance ${escapeHtml(formatMetricValue(item.distance_to_query))}</p>
+              <p class="recommendation-subtitle">${escapeHtml(item.brand)} · ${matchPercentage}% Match</p>
             </div>
-            <span class="chip">Score ${escapeHtml(item.audience_verdict ?? "—")}</span>
+            <span class="chip match-score">${matchPercentage}%</span>
           </div>
           <div class="chip-row">${chipValues || '<span class="chip muted-card">No feature values</span>'}</div>
         </article>
@@ -150,7 +170,6 @@ function populateShoeOptions(shoes, selectedId = null) {
 async function loadShoes() {
   const terrain = currentTerrainSelection();
   state.terrain = terrain;
-  currentTerrain.textContent = terrain;
   setStatus(`Loading ${terrain === "Both" ? "all" : terrain.toLowerCase()} shoes…`);
 
   shoeSelect.disabled = true;
@@ -165,7 +184,6 @@ async function loadShoes() {
 
   const data = await response.json();
   state.shoes = data.shoes || [];
-  shoeCount.textContent = String(data.count ?? state.shoes.length);
   populateShoeOptions(state.shoes, state.selectedShoeId);
   setStatus(`Loaded ${data.count ?? state.shoes.length} shoes`);
   matchButton.disabled = state.shoes.length === 0;
@@ -181,7 +199,7 @@ async function runMatcher() {
   const payload = {
     shoe_id: shoeSelect.value,
     n_neighbors: Number(neighborsInput.value) || 5,
-    n_clusters: Number(clustersInput.value) || 8,
+    n_clusters: 4, // Use 4 clusters based on elbow method
   };
 
   if (selectedTerrain !== "Both") {
@@ -253,7 +271,7 @@ window.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadShoes();
     if (shoeSelect.value) {
-      renderMatchedShoe(null, { recommendations: [], cluster_label: "—", cluster_size: "—" });
+      renderMatchedShoe(null, { recommendations: [] });
     }
   } catch (error) {
     console.error(error);

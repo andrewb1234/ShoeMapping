@@ -15,7 +15,7 @@
         <div class="brand">
           <div class="brand-mark">SM</div>
           <div>
-            <p class="eyebrow">RunRepeat clustering</p>
+            <p class="eyebrow">AI-powered shoe matching</p>
             <h1>Shoe Matcher</h1>
           </div>
         </div>
@@ -39,11 +39,11 @@
             </div>
             <div class="hero-point">
               <strong>2.</strong>
-              <span>Run K-means clustering on matching shoes.</span>
+              <span>Our AI analyzes thousands of lab tests to find your perfect match.</span>
             </div>
             <div class="hero-point">
               <strong>3.</strong>
-              <span>Review the nearest recommendations.</span>
+              <span>Review your top matches.</span>
             </div>
           </div>
         </section>
@@ -75,36 +75,16 @@
             </label>
 
             <label>
-              Nearest shoes
+              Results to show
               <input id="neighbors-input" type="number" min="1" max="20" value="5" />
-            </label>
-
-            <label>
-              Clusters
-              <input id="clusters-input" type="number" min="1" max="20" value="8" />
             </label>
           </div>
 
           <div class="action-row">
             <button id="match-button" class="primary-button" disabled>Find similar shoes</button>
-            <p class="hint">If terrain is set to Both, the cluster request will not send a terrain filter.</p>
           </div>
         </section>
 
-        <section class="stats-row">
-          <article class="card stat-card">
-            <span id="shoe-count" class="stat-value">0</span>
-            <span class="stat-label">Shoes loaded</span>
-          </article>
-          <article class="card stat-card">
-            <span id="current-terrain" class="stat-value">Both</span>
-            <span class="stat-label">Active terrain</span>
-          </article>
-          <article class="card stat-card">
-            <span id="cluster-status" class="stat-value">Idle</span>
-            <span class="stat-label">Matcher status</span>
-          </article>
-        </section>
 
         <section class="results-grid">
           <article class="card results-panel">
@@ -123,7 +103,7 @@
             <div class="section-heading">
               <div>
                 <p class="section-kicker">Recommendations</p>
-                <h3>Nearest shoes in the cluster</h3>
+                <h3>Top matches for you</h3>
               </div>
             </div>
             <div id="recommendations" class="recommendation-list empty-state">
