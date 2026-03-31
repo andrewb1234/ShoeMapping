@@ -21,7 +21,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
 # Import clustering functionality
-from shoe_clustering import ShoeKMeansClusterer
+from shoe_clustering import ShoeKMeansClusterer, DEFAULT_CATALOG_PATH
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -108,6 +108,58 @@ class SupervisedShoeMatcher:
                 df.at[df.index[idx], 'Terrain'] = results['Terrain']
             if 'Arch Support' in results and results['Arch Support'] is not None:
                 df.at[df.index[idx], 'Arch Support'] = results['Arch Support']
+        
+        # Filter to shoes with at least some features
+        feature_cols = [col for col in df.columns if col in DEFAULT_FEATURES]
+        df = df.dropna(subset=feature_cols, thresh=3).copy()  # Require at least 3 features
+        
+        self.shoes_df = df
+        
+        # Initialize and fit clusterer
+        self._initialize_clusterer()
+        
+        logger.info(f"Loaded {len(df)} shoes with lab test data")
+        return df
+    
+    def load_shoes_from_catalog(self, catalog_path: Path = DEFAULT_CATALOG_PATH) -> pd.DataFrame:
+        """Load all shoes from the JSON catalog and flatten lab test results."""
+        with open(catalog_path, 'r', encoding='utf-8') as f:
+            catalog = json.load(f)
+        
+        df = pd.DataFrame(catalog)
+        
+        # Filter out shoes with no lab test results
+        df = df[df['lab_test_results'].notna()].copy()
+        
+        # Create feature columns
+        for feature in DEFAULT_FEATURES:
+            df[feature] = None
+        
+        # Add categorical columns
+        df['Terrain'] = None
+        df['Arch Support'] = None
+            
+        # Extract features using aliases
+        for idx, row in df.iterrows():
+            results = row['lab_test_results']
+            
+            # Extract numeric features
+            for feature, aliases in FEATURE_ALIASES.items():
+                for alias in aliases:
+                    if alias in results and results[alias] is not None:
+                        # Try to convert to numeric
+                        try:
+                            value = float(str(results[alias]).replace('mm', '').replace('g', '').strip())
+                            df.at[idx, feature] = value
+                            break
+                        except (ValueError, TypeError):
+                            continue
+            
+            # Extract categorical features
+            if 'Terrain' in results and results['Terrain'] is not None:
+                df.at[idx, 'Terrain'] = results['Terrain']
+            if 'Arch Support' in results and results['Arch Support'] is not None:
+                df.at[idx, 'Arch Support'] = results['Arch Support']
         
         # Filter to shoes with at least some features
         feature_cols = [col for col in df.columns if col in DEFAULT_FEATURES]

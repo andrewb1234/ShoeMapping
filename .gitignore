@@ -32,6 +32,10 @@ data/*.pkl
 *.csv
 *.pkl
 
+# Exceptions for Vercel deployment
+!data/shoes.catalog.json
+!data/supervised_shoe_matcher.pkl
+
 # Logs
 *.log
 

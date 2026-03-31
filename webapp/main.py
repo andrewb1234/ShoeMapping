@@ -108,27 +108,23 @@ def get_shoe_statistics(
     if not shoe:
         raise HTTPException(status_code=404, detail="Shoe not found")
     
-    # Fetch the raw lab test results
-    import sqlite3
+    # Fetch the lab test results from the catalog
     from pathlib import Path
-    from webapp.services import safe_json_loads
+    import json
     
-    db_path = Path(__file__).resolve().parent.parent / "data" / "runrepeat_lab_tests.sqlite"
-    with sqlite3.connect(db_path) as conn:
-        cursor = conn.execute(
-            """
-            SELECT lab_test_results
-            FROM shoes
-            WHERE shoe_id = ?
-            """,
-            (shoe_id,),
-        )
-        row = cursor.fetchone()
+    catalog_path = Path(__file__).resolve().parent.parent / "data" / "shoes.catalog.json"
+    with open(catalog_path, "r", encoding="utf-8") as f:
+        catalog = json.load(f)
     
-    if not row:
+    # Find the shoe in the catalog
+    lab_results = None
+    for shoe_data in catalog:
+        if shoe_data["shoe_id"] == shoe_id:
+            lab_results = shoe_data["lab_test_results"]
+            break
+    
+    if not lab_results:
         raise HTTPException(status_code=404, detail="Shoe data not found")
-    
-    lab_results = safe_json_loads(row[0])
     
     return {
         "shoe_id": shoe["shoe_id"],

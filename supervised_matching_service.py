@@ -80,7 +80,11 @@ class SupervisedMatchingService:
     def find_shoe_by_name(self, shoe_name: str) -> Optional[str]:
         """Find shoe ID by human-readable name using fuzzy matching."""
         if self.matcher.shoes_df is None:
-            self.matcher.load_shoes_from_db()
+            # Try catalog first (for Vercel), fall back to SQLite
+            try:
+                self.matcher.load_shoes_from_catalog()
+            except (FileNotFoundError, Exception):
+                self.matcher.load_shoes_from_db()
         
         # Create list of shoe names
         shoe_names = []

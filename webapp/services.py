@@ -6,8 +6,6 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from shoe_clustering import DEFAULT_DB_PATH
-
 # Try to import the supervised matching service
 try:
     from supervised_matching_service import get_matching_service
@@ -18,6 +16,7 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 ALLOWED_TERRAINS = {"Road", "Trail"}
+DEFAULT_CATALOG_PATH = Path("data/shoes.catalog.json")
 
 
 def normalize_text(value: Any) -> str:
@@ -69,50 +68,40 @@ def display_name(brand: str, shoe_name: str) -> str:
 
 
 class ShoeCatalogService:
-    """Read shoe metadata from the RunRepeat SQLite database."""
+    """Read shoe metadata from the compact JSON catalog."""
 
-    def __init__(self, db_path: Path | str = DEFAULT_DB_PATH) -> None:
-        self.db_path = Path(db_path)
+    def __init__(self, catalog_path: Path | str = DEFAULT_CATALOG_PATH) -> None:
+        self.catalog_path = Path(catalog_path)
+        self._catalog: Optional[List[Dict[str, Any]]] = None
 
-    def _fetch_rows(self) -> List[Tuple[Any, ...]]:
-        if not self.db_path.exists():
-            raise FileNotFoundError(f"Database not found: {self.db_path}")
-
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                """
-                SELECT shoe_id, brand, shoe_name, source_url, audience_verdict,
-                       lab_test_results, crawled_at
-                FROM shoes
-                ORDER BY brand, shoe_name
-                """
-            )
-            return cursor.fetchall()
+    def _load_catalog(self) -> List[Dict[str, Any]]:
+        if self._catalog is None:
+            if not self.catalog_path.exists():
+                raise FileNotFoundError(f"Catalog not found: {self.catalog_path}")
+            with open(self.catalog_path, "r", encoding="utf-8") as f:
+                self._catalog = json.load(f)
+        return self._catalog or []
 
     def list_shoes(self, terrain: Optional[str] = None) -> List[Dict[str, Any]]:
         terrain_filter = normalize_terrain_selection(terrain)
         items: List[Dict[str, Any]] = []
 
-        for row in self._fetch_rows():
-            shoe_id, brand, shoe_name, source_url, audience_verdict, lab_json, crawled_at = row
-            lab_results = safe_json_loads(lab_json)
-            shoe_terrain = lab_results.get("Terrain")
+        for shoe in self._load_catalog():
+            shoe_terrain = shoe.get("terrain")
 
             if terrain_filter and normalize_text(shoe_terrain) != normalize_text(terrain_filter):
                 continue
 
-            items.append(
-                {
-                    "shoe_id": str(shoe_id),
-                    "brand": str(brand),
-                    "shoe_name": str(shoe_name),
-                    "display_name": display_name(str(brand), str(shoe_name)),
-                    "terrain": shoe_terrain,
-                    "source_url": str(source_url),
-                    "crawled_at": str(crawled_at),
-                    "audience_verdict": None if audience_verdict is None else int(audience_verdict),
-                }
-            )
+            items.append({
+                "shoe_id": shoe["shoe_id"],
+                "brand": shoe["brand"],
+                "shoe_name": shoe["shoe_name"],
+                "display_name": shoe["display_name"],
+                "terrain": shoe_terrain,
+                "source_url": shoe["source_url"],
+                "crawled_at": shoe["crawled_at"],
+                "audience_verdict": shoe["audience_verdict"],
+            })
 
         items.sort(key=lambda item: (item["brand"].lower(), item["shoe_name"].lower()))
         return items
@@ -121,33 +110,20 @@ class ShoeCatalogService:
         if not shoe_id:
             return {}
 
-        with sqlite3.connect(self.db_path) as conn:
-            cursor = conn.execute(
-                """
-                SELECT shoe_id, brand, shoe_name, source_url, audience_verdict,
-                       lab_test_results, crawled_at
-                FROM shoes
-                WHERE shoe_id = ?
-                """,
-                (shoe_id,),
-            )
-            row = cursor.fetchone()
+        for shoe in self._load_catalog():
+            if shoe["shoe_id"] == shoe_id:
+                return {
+                    "shoe_id": shoe["shoe_id"],
+                    "brand": shoe["brand"],
+                    "shoe_name": shoe["shoe_name"],
+                    "display_name": shoe["display_name"],
+                    "terrain": shoe.get("terrain"),
+                    "source_url": shoe["source_url"],
+                    "crawled_at": shoe["crawled_at"],
+                    "audience_verdict": shoe["audience_verdict"],
+                }
 
-        if not row:
-            return {}
-
-        _, brand, shoe_name, source_url, audience_verdict, lab_json, crawled_at = row
-        lab_results = safe_json_loads(lab_json)
-        return {
-            "shoe_id": str(row[0]),
-            "brand": str(brand),
-            "shoe_name": str(shoe_name),
-            "display_name": display_name(str(brand), str(shoe_name)),
-            "terrain": lab_results.get("Terrain"),
-            "source_url": str(source_url),
-            "crawled_at": str(crawled_at),
-            "audience_verdict": None if audience_verdict is None else int(audience_verdict),
-        }
+        return {}
 
 
 class ShoeRecommendationService:
@@ -157,9 +133,8 @@ class ShoeRecommendationService:
     learning approach using XGBoost similarity predictions.
     """
 
-    def __init__(self, db_path: Path | str = DEFAULT_DB_PATH, catalog_service: Optional[ShoeCatalogService] = None) -> None:
-        self.db_path = Path(db_path)
-        self.catalog_service = catalog_service or ShoeCatalogService(db_path)
+    def __init__(self, catalog_service: Optional[ShoeCatalogService] = None) -> None:
+        self.catalog_service = catalog_service or ShoeCatalogService()
         self._clusterers: Dict[Tuple[str, int], Any] = {}
         
         # Initialize supervised matching service if available
@@ -180,7 +155,6 @@ class ShoeRecommendationService:
             from shoe_clustering import ShoeKMeansClusterer
 
             clusterer = ShoeKMeansClusterer(
-                db_path=self.db_path,
                 n_clusters=max(1, n_clusters),
                 n_neighbors=max(1, n_neighbors),
                 terrain_filter=terrain_filter,

@@ -14,7 +14,7 @@ import sqlite3
 from dataclasses import dataclass
 from difflib import SequenceMatcher, get_close_matches
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,7 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 DEFAULT_DB_PATH = Path("data/runrepeat_lab_tests.sqlite")
+DEFAULT_CATALOG_PATH = Path("data/shoes.catalog.json")
 DEFAULT_FEATURES = [
     "Drop",
     "Heel stack",
@@ -92,28 +93,33 @@ class ShoeSummary:
 
 
 class ShoeKMeansClusterer:
-    """Train a K-means model over RunRepeat shoes and generate recommendations."""
+    """K-means clustering for shoes using SQLite or JSON catalog as data source."""
 
     def __init__(
         self,
-        db_path: Path | str = DEFAULT_DB_PATH,
+        db_path: Optional[Path | str] = None,
+        catalog_path: Optional[Path | str] = None,
         n_clusters: int = 8,
         n_neighbors: int = 5,
-        random_state: int = 42,
-        feature_names: Optional[Sequence[str]] = None,
         terrain_filter: Optional[str] = None,
+        random_state: int = 42,
+        missing_threshold: float = 0.3,
+        features: Optional[List[str]] = None,
     ) -> None:
-        self.db_path = Path(db_path)
-        self.n_clusters = max(1, n_clusters)
-        self.n_neighbors = max(1, n_neighbors)
-        self.random_state = random_state
-        self.feature_names = list(feature_names or DEFAULT_FEATURES)
+        self.db_path = Path(db_path) if db_path else None
+        self.catalog_path = Path(catalog_path) if catalog_path else DEFAULT_CATALOG_PATH
+        self.n_clusters = n_clusters
+        self.n_neighbors = n_neighbors
         self.terrain_filter = terrain_filter
+        self.random_state = random_state
+        self.missing_threshold = missing_threshold
+        self.features = features or DEFAULT_FEATURES.copy()
+        self.feature_names = self.features.copy()
 
-        self.imputer = None
-        self.scaler = None
+        # Runtime state
         self.model: Optional[KMeans] = None
-
+        self.imputer = SimpleImputer(strategy="median")
+        self.scaler = StandardScaler()
         self.shoe_frame: Optional[pd.DataFrame] = None
         self.feature_frame: Optional[pd.DataFrame] = None
         self.scaled_matrix: Optional[np.ndarray] = None
@@ -173,23 +179,39 @@ class ShoeKMeansClusterer:
         return None
 
     def _load_shoe_rows(self) -> pd.DataFrame:
-        if not self.db_path.exists():
-            raise FileNotFoundError(f"Database not found: {self.db_path}")
-
-        with sqlite3.connect(self.db_path) as conn:
-            df = pd.read_sql_query(
-                """
-                SELECT shoe_id, brand, shoe_name, source_url, audience_verdict, lab_test_results, crawled_at
-                FROM shoes
-                """,
-                conn,
-            )
+        # Prefer JSON catalog if available (for Vercel)
+        if self.catalog_path and self.catalog_path.exists():
+            with open(self.catalog_path, "r", encoding="utf-8") as f:
+                catalog = json.load(f)
+            
+            df = pd.DataFrame(catalog)
+            
+            # Rename lab_test_results for compatibility
+            # The catalog stores it under "lab_test_results"
+            # Keep as is since we access it directly
+            
+        elif self.db_path and self.db_path.exists():
+            with sqlite3.connect(self.db_path) as conn:
+                df = pd.read_sql_query(
+                    """
+                    SELECT shoe_id, brand, shoe_name, source_url, audience_verdict, lab_test_results, crawled_at
+                    FROM shoes
+                    """,
+                    conn,
+                )
+            # Parse JSON column
+            df["lab_test_results"] = df["lab_test_results"].apply(self._safe_json_loads)
+        else:
+            paths = []
+            if self.catalog_path:
+                paths.append(str(self.catalog_path))
+            if self.db_path:
+                paths.append(str(self.db_path))
+            raise FileNotFoundError(f"No data source found. Tried: {', '.join(paths)}")
 
         if df.empty:
-            raise ValueError(f"No shoe rows found in database: {self.db_path}")
+            raise ValueError("No shoe data found")
 
-        df["lab_test_results"] = df["lab_test_results"].apply(self._safe_json_loads)
-        
         # Apply terrain filter if specified
         if self.terrain_filter:
             def matches_terrain(lab_results: Dict[str, Any]) -> bool:
