@@ -1,13 +1,15 @@
 const state = {
   shoes: [],
+  brands: [],
   selectedShoeId: null,
+  selectedBrand: null,
   terrain: "Both",
 };
 
 const terrainSelect = document.getElementById("terrain-select");
+const brandSelect = document.getElementById("brand-select");
 const shoeSelect = document.getElementById("shoe-select");
 const matchButton = document.getElementById("match-button");
-const neighborsInput = document.getElementById("neighbors-input");
 const shoeCount = document.getElementById("shoe-count");
 const currentTerrain = document.getElementById("current-terrain");
 const statusPill = document.getElementById("status-pill");
@@ -57,7 +59,7 @@ function formatMetricValue(value, key) {
       return formattedValue + "mm";
     } else if (key === "Torsional rigidity") {
       // Add context for rigidity (assuming 1-5 scale where higher is stiffer)
-      const rigidityLevel = value <= 2 ? "(Flexible)" : value <= 4 ? "(Moderate)" : "(Stiff)";
+      const rigidityLevel = value <= 2 ? "(Flexible)" : value <= 3 ? "(Moderate)" : "(Stiff)";
       return `${formattedValue}/5 ${rigidityLevel}`;
     }
     return formattedValue;
@@ -149,22 +151,41 @@ function renderRecommendations(items) {
     .join("");
 }
 
-function populateShoeOptions(shoes, selectedId = null) {
-  shoeSelect.innerHTML = shoes
+function populateBrandOptions(brands, selectedBrand = null) {
+  brandSelect.innerHTML = brands
+    .map((brand) => {
+      const selected = brand === selectedBrand ? "selected" : "";
+      return `<option value="${escapeHtml(brand)}" ${selected}>${escapeHtml(brand)}</option>`;
+    })
+    .join("");
+
+  brandSelect.disabled = brands.length === 0;
+  
+  if (!selectedBrand && brands.length > 0) {
+    brandSelect.value = brands[0];
+    state.selectedBrand = brands[0];
+    populateShoeOptionsForBrand(brands[0]);
+  }
+}
+
+function populateShoeOptionsForBrand(brand) {
+  const brandShoes = state.shoes.filter((shoe) => shoe.brand === brand);
+  
+  shoeSelect.innerHTML = brandShoes
     .map((shoe) => {
-      const selected = shoe.shoe_id === selectedId ? "selected" : "";
+      const selected = shoe.shoe_id === state.selectedShoeId ? "selected" : "";
       return `<option value="${escapeHtml(shoe.shoe_id)}" ${selected}>${escapeHtml(shoe.display_name)}</option>`;
     })
     .join("");
 
-  shoeSelect.disabled = shoes.length === 0;
-  matchButton.disabled = shoes.length === 0;
-
-  if (!selectedId && shoes.length > 0) {
-    shoeSelect.value = shoes[0].shoe_id;
+  shoeSelect.disabled = brandShoes.length === 0;
+  
+  if (brandShoes.length > 0 && !state.selectedShoeId) {
+    shoeSelect.value = brandShoes[0].shoe_id;
+    state.selectedShoeId = brandShoes[0].shoe_id;
   }
-
-  state.selectedShoeId = shoeSelect.value || null;
+  
+  matchButton.disabled = brandShoes.length === 0;
 }
 
 async function loadShoes() {
@@ -172,9 +193,11 @@ async function loadShoes() {
   state.terrain = terrain;
   setStatus(`Loading ${terrain === "Both" ? "all" : terrain.toLowerCase()} shoes…`);
 
+  brandSelect.disabled = true;
   shoeSelect.disabled = true;
   matchButton.disabled = true;
-  shoeSelect.innerHTML = `<option>Loading shoes…</option>`;
+  brandSelect.innerHTML = `<option>Loading brands…</option>`;
+  shoeSelect.innerHTML = `<option>Select a brand first</option>`;
 
   const response = await fetch(`/api/shoes${terrainQueryParam(terrain)}`);
   if (!response.ok) {
@@ -184,9 +207,13 @@ async function loadShoes() {
 
   const data = await response.json();
   state.shoes = data.shoes || [];
-  populateShoeOptions(state.shoes, state.selectedShoeId);
-  setStatus(`Loaded ${data.count ?? state.shoes.length} shoes`);
-  matchButton.disabled = state.shoes.length === 0;
+  
+  // Extract unique brands
+  const brands = [...new Set(state.shoes.map((shoe) => shoe.brand))].sort();
+  state.brands = brands;
+  
+  populateBrandOptions(brands, state.selectedBrand);
+  setStatus(`Loaded ${data.count ?? state.shoes.length} shoes from ${brands.length} brands`);
 }
 
 async function runMatcher() {
@@ -198,7 +225,7 @@ async function runMatcher() {
   const selectedTerrain = currentTerrainSelection();
   const payload = {
     shoe_id: shoeSelect.value,
-    n_neighbors: Number(neighborsInput.value) || 5,
+    n_neighbors: 5, // Always show 5 shoes
     n_clusters: 4, // Use 4 clusters based on elbow method
   };
 
@@ -246,23 +273,25 @@ async function runMatcher() {
   }
 }
 
-terrainSelect.addEventListener("change", async () => {
-  try {
-    const previousSelection = shoeSelect.value;
-    state.selectedShoeId = previousSelection;
-    await loadShoes();
-    if (previousSelection && Array.from(shoeSelect.options).some((option) => option.value === previousSelection)) {
-      shoeSelect.value = previousSelection;
-      state.selectedShoeId = previousSelection;
-    }
-  } catch (error) {
-    console.error(error);
-    setStatus(error.message || "Could not load shoes", "error");
-  }
+brandSelect.addEventListener("change", () => {
+  state.selectedBrand = brandSelect.value || null;
+  state.selectedShoeId = null; // Reset shoe selection when brand changes
+  populateShoeOptionsForBrand(state.selectedBrand);
 });
 
 shoeSelect.addEventListener("change", () => {
   state.selectedShoeId = shoeSelect.value || null;
+});
+
+terrainSelect.addEventListener("change", async () => {
+  try {
+    state.selectedBrand = null;
+    state.selectedShoeId = null;
+    await loadShoes();
+  } catch (error) {
+    console.error(error);
+    setStatus(error.message || "Could not load shoes", "error");
+  }
 });
 
 matchButton.addEventListener("click", runMatcher);
@@ -270,7 +299,7 @@ matchButton.addEventListener("click", runMatcher);
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     await loadShoes();
-    if (shoeSelect.value) {
+    if (brandSelect.value && shoeSelect.value) {
       renderMatchedShoe(null, { recommendations: [] });
     }
   } catch (error) {

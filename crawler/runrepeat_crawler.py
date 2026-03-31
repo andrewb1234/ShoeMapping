@@ -305,6 +305,9 @@ class RunRepeatCrawler:
         if not h1:
             return None
         name = " ".join(h1.get_text(" ", strip=True).split())
+        # Remove " Review" suffix if present
+        if name and name.lower().endswith(" review"):
+            name = name[:-7].strip()  # Remove " review" (7 chars)
         return name or None
 
     def _extract_brand(self, soup: BeautifulSoup, shoe_name: str) -> Optional[str]:
@@ -580,9 +583,9 @@ def crawl(
         for existing_id in existing_shoe_ids:
             # Extract shoe name from existing shoe_id (after ::)
             existing_shoe_name = existing_id.split("::")[-1]
-            # Normalize both by removing " review" suffix and converting to lowercase
+            # Normalize both by converting to lowercase and handling hyphens
             shoe_slug_norm = shoe_slug.lower().replace("-", " ")
-            existing_name_norm = existing_shoe_name.lower().replace(" review", "")
+            existing_name_norm = existing_shoe_name.lower()
             # Compare normalized names
             if shoe_slug_norm == existing_name_norm:
                 is_duplicate = True
