@@ -302,10 +302,15 @@ class ShoeKMeansClusterer:
         if self.model is None or self.shoe_frame is None or self.scaled_matrix is None or self.labels_ is None:
             self.fit()
 
-    def _resolve_shoe_index(self, shoe_name: str) -> int:
+    def _resolve_shoe_index(self, shoe_name: str, shoe_id: Optional[str] = None) -> int:
         self._ensure_fitted()
         assert self.shoe_frame is not None
         assert self._search_keys is not None
+
+        if shoe_id:
+            exact_id_matches = [idx for idx, candidate in enumerate(self.shoe_frame["shoe_id"].astype(str)) if candidate == shoe_id]
+            if exact_id_matches:
+                return exact_id_matches[0]
 
         query = self._normalize_text(shoe_name)
         if not query:
@@ -354,7 +359,7 @@ class ShoeKMeansClusterer:
             distance_to_centroid=distance_to_centroid,
         )
 
-    def recommend(self, shoe_name: str, n_neighbors: Optional[int] = None) -> Dict[str, Any]:
+    def recommend(self, shoe_name: str, n_neighbors: Optional[int] = None, shoe_id: Optional[str] = None) -> Dict[str, Any]:
         """Return cluster info and nearest shoes for a human-readable shoe name."""
         self._ensure_fitted()
         assert self.model is not None
@@ -363,7 +368,7 @@ class ShoeKMeansClusterer:
         assert self.labels_ is not None
 
         neighbor_count = max(1, n_neighbors or self.n_neighbors)
-        target_index = self._resolve_shoe_index(shoe_name)
+        target_index = self._resolve_shoe_index(shoe_name, shoe_id=shoe_id)
         target_row = self.shoe_frame.iloc[target_index]
         query_vector = self.scaled_matrix[target_index].reshape(1, -1)
         cluster_label = int(self.model.predict(query_vector)[0])
@@ -424,10 +429,11 @@ def recommend_similar_shoes(
     n_clusters: int = 8,
     n_neighbors: int = 5,
     terrain_filter: Optional[str] = None,
+    shoe_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Convenience wrapper for one-off clustering lookups."""
     clusterer = ShoeKMeansClusterer(db_path=db_path, n_clusters=n_clusters, n_neighbors=n_neighbors, terrain_filter=terrain_filter)
-    return clusterer.recommend(shoe_name)
+    return clusterer.recommend(shoe_name, n_neighbors=n_neighbors, shoe_id=shoe_id)
 
 
 def main() -> None:

@@ -145,6 +145,27 @@ python3 shoe_clustering.py "Adidas Adistar"
 - The helper reads from `data/runrepeat_lab_tests.sqlite`
 - Shoe lookup accepts human-readable names and resolves them against the dataset
 
+## Shoe Matcher Web App
+
+This repository now includes a small FastAPI web app for trying the matcher in a browser.
+
+### Run locally
+```bash
+source env/bin/activate
+pip install -r requirements.txt
+uvicorn webapp.main:app --reload
+```
+
+Open `http://127.0.0.1:8000` in your browser.
+
+### API endpoints
+- `GET /api/shoes` — returns the shoe list for the dropdown. Supports `?terrain=Road`, `?terrain=Trail`, or no terrain filter for Both.
+- `POST /api/recommendations` — takes a shoe selection and returns the matched shoe plus similar recommendations.
+
+### Terrain behavior
+- `Road` and `Trail` filter both the dropdown and the clustering dataset.
+- `Both` means no terrain filter is sent to clustering.
+
 ## Notes
 
 - URL discovery: Sitemap → Catalog pages → Individual shoe pages

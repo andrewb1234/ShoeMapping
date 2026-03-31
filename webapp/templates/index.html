@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Shoe Matcher</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body>
+    <div class="page-shell">
+      <header class="topbar">
+        <div class="brand">
+          <div class="brand-mark">SM</div>
+          <div>
+            <p class="eyebrow">RunRepeat clustering</p>
+            <h1>Shoe Matcher</h1>
+          </div>
+        </div>
+        <p class="topbar-copy">Pick a terrain, choose a shoe, and get similar models from the lab-test dataset.</p>
+      </header>
+
+      <main class="layout">
+        <section class="hero card">
+          <div>
+            <span class="badge">Trail / Road / Both</span>
+            <h2>Compare shoes with a clean, focused matcher</h2>
+            <p>
+              The list below is driven by the RunRepeat database. Terrain selection updates the dropdown,
+              and the recommendation request uses the same terrain filter unless you choose <strong>Both</strong>.
+            </p>
+          </div>
+          <div class="hero-points">
+            <div class="hero-point">
+              <strong>1.</strong>
+              <span>Select a terrain and shoe.</span>
+            </div>
+            <div class="hero-point">
+              <strong>2.</strong>
+              <span>Run K-means clustering on matching shoes.</span>
+            </div>
+            <div class="hero-point">
+              <strong>3.</strong>
+              <span>Review the nearest recommendations.</span>
+            </div>
+          </div>
+        </section>
+
+        <section class="card controls">
+          <div class="section-heading">
+            <div>
+              <p class="section-kicker">Search</p>
+              <h3>Choose your match settings</h3>
+            </div>
+            <span id="status-pill" class="status-pill">Loading shoes…</span>
+          </div>
+
+          <div class="control-grid">
+            <label>
+              Terrain
+              <select id="terrain-select">
+                <option value="Both" selected>Both</option>
+                <option value="Road">Road</option>
+                <option value="Trail">Trail</option>
+              </select>
+            </label>
+
+            <label>
+              Shoe
+              <select id="shoe-select" disabled>
+                <option>Loading shoes…</option>
+              </select>
+            </label>
+
+            <label>
+              Nearest shoes
+              <input id="neighbors-input" type="number" min="1" max="20" value="5" />
+            </label>
+
+            <label>
+              Clusters
+              <input id="clusters-input" type="number" min="1" max="20" value="8" />
+            </label>
+          </div>
+
+          <div class="action-row">
+            <button id="match-button" class="primary-button" disabled>Find similar shoes</button>
+            <p class="hint">If terrain is set to Both, the cluster request will not send a terrain filter.</p>
+          </div>
+        </section>
+
+        <section class="stats-row">
+          <article class="card stat-card">
+            <span id="shoe-count" class="stat-value">0</span>
+            <span class="stat-label">Shoes loaded</span>
+          </article>
+          <article class="card stat-card">
+            <span id="current-terrain" class="stat-value">Both</span>
+            <span class="stat-label">Active terrain</span>
+          </article>
+          <article class="card stat-card">
+            <span id="cluster-status" class="stat-value">Idle</span>
+            <span class="stat-label">Matcher status</span>
+          </article>
+        </section>
+
+        <section class="results-grid">
+          <article class="card results-panel">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Matched shoe</p>
+                <h3 id="matched-title">Choose a shoe to begin</h3>
+              </div>
+            </div>
+            <div id="matched-shoe" class="detail-grid empty-state">
+              <p>Select a shoe, choose a terrain, and click <strong>Find similar shoes</strong>.</p>
+            </div>
+          </article>
+
+          <article class="card results-panel">
+            <div class="section-heading">
+              <div>
+                <p class="section-kicker">Recommendations</p>
+                <h3>Nearest shoes in the cluster</h3>
+              </div>
+            </div>
+            <div id="recommendations" class="recommendation-list empty-state">
+              <p>Results will appear here after you run a match.</p>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>
