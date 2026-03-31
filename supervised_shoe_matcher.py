@@ -299,7 +299,7 @@ class SupervisedShoeMatcher:
         
         # Predict
         similarity = self.model.predict(delta_scaled)[0]
-        return max(0, min(100, similarity))  # Clamp to 0-100 range
+        return max(0, min(100, float(similarity)))  # Convert to Python float and clamp to 0-100 range
     
     def find_similar_shoes(
         self,
@@ -349,7 +349,7 @@ class SupervisedShoeMatcher:
             
             # Predict similarity
             similarity = self.model.predict(delta_scaled)[0]
-            similarity = max(0, min(100, similarity))
+            similarity = max(0, min(100, float(similarity)))  # Convert to Python float and clamp
             
             similarities.append({
                 'shoe_id': other_shoe['shoe_id'],

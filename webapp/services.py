@@ -246,13 +246,13 @@ class ShoeRecommendationService:
                             'similarity_score': rec['similarity_score'],
                             'terrain': shoe_details['terrain'],
                             'audience_verdict': shoe_details['audience_verdict'],
+                            'source_url': shoe_details['source_url'],  # Add source_url for review link
                         })
                 
                 return {
-                    'matched_shoe': result.get('matched_shoe', {}),
-                    'recommendations': recommendations,
+                    **result,  # Include all fields from supervised service
+                    'recommendations': recommendations,  # Override with formatted recommendations
                     'terrain': terrain_response_value(terrain),
-                    'algorithm': 'supervised_xgboost',
                 }
                 
             except Exception as e:

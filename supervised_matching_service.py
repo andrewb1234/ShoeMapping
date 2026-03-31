@@ -119,6 +119,38 @@ class SupervisedMatchingService:
         # Get matched shoe details
         matched_shoe = self.matcher.shoes_df[self.matcher.shoes_df['shoe_id'] == shoe_id].iloc[0]
         
+        # Get clustering information from the matcher's clusterer
+        cluster_info = {}
+        if self.matcher.clusterer is not None:
+            # Get cluster label for the matched shoe
+            cluster_label = int(matched_shoe.get('cluster_label', 0))
+            
+            # Convert cluster center to Python native types
+            cluster_center = {}
+            if hasattr(self.matcher.clusterer.model, 'cluster_centers_'):
+                center_values = self.matcher.clusterer.model.cluster_centers_[cluster_label]
+                feature_names = self.matcher.clusterer.feature_names
+                cluster_center = {
+                    name: float(value) for name, value in zip(feature_names, center_values)
+                }
+            
+            cluster_info = {
+                'cluster_label': cluster_label,
+                'cluster_size': int(sum(self.matcher.clusterer.labels_ == cluster_label)),
+                'cluster_center': cluster_center,
+                'feature_names': list(self.matcher.clusterer.feature_names),
+                'n_clusters': int(self.matcher.clusterer.model.n_clusters)
+            }
+        else:
+            # Fallback values if clusterer is not available
+            cluster_info = {
+                'cluster_label': 0,
+                'cluster_size': 0,
+                'cluster_center': {},
+                'feature_names': [],
+                'n_clusters': 0
+            }
+        
         # Find similar shoes
         similar_shoes = self.matcher.find_similar_shoes(
             shoe_id,
@@ -131,13 +163,15 @@ class SupervisedMatchingService:
             similar_shoes = self._filter_by_terrain(similar_shoes, terrain.title())
         
         return {
+            'query': shoe_name,
             'matched_shoe': {
                 'shoe_id': shoe_id,
                 'name': f"{matched_shoe['brand']} {matched_shoe['shoe_name']}",
                 'brand': matched_shoe['brand']
             },
             'recommendations': similar_shoes,
-            'algorithm': 'supervised_xgboost'
+            'algorithm': 'supervised_xgboost',
+            **cluster_info  # Add all clustering information
         }
     
     def _get_name_suggestions(self, shoe_name: str, max_suggestions: int = 5) -> List[str]:

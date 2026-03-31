@@ -116,8 +116,14 @@ function renderMatchedShoe(shoe, result) {
   matchedShoe.innerHTML = metricsHtml + urlLink;
 }
 
-function convertDistanceToMatchPercentage(distance) {
-  // Convert Euclidean distance to match percentage
+function convertDistanceToMatchPercentage(distance, similarityScore) {
+  // Handle both supervised model (similarity_score) and K-Means (distance)
+  if (similarityScore !== undefined && similarityScore !== null) {
+    // Supervised model: similarity_score is already 0-100
+    return Math.round(similarityScore);
+  }
+  
+  // K-Means: Convert Euclidean distance to match percentage
   // Distance is in scaled feature space, not normalized 0-1
   // We'll use a more appropriate scaling: higher distance = lower match
   console.log(`Raw distance: ${distance}`); // Debug logging
@@ -140,19 +146,36 @@ function renderRecommendations(items) {
   recommendations.innerHTML = items
     .map((item) => {
       const featureValues = item.feature_values || {};
-      const matchPercentage = convertDistanceToMatchPercentage(item.distance_to_query);
-      const chipValues = [
-        ["Drop", featureValues.Drop],
-        ["Heel stack", featureValues["Heel stack"]],
-        ["Forefoot stack", featureValues["Forefoot stack"]],
-        ["Weight", featureValues.Weight],
-        ["Torsional rigidity", featureValues["Torsional rigidity"]],
-      ]
+      const matchPercentage = convertDistanceToMatchPercentage(item.distance_to_query, item.similarity_score);
+      
+      // Handle both supervised and K-Means outputs
+      const chipValues = [];
+      
+      // For supervised model, use terrain and audience_verdict if available
+      if (item.terrain) {
+        chipValues.push(["Terrain", item.terrain]);
+      }
+      if (item.audience_verdict !== undefined && item.audience_verdict !== null) {
+        chipValues.push(["Audience Score", item.audience_verdict]);
+      }
+      
+      // For K-Means, use feature_values
+      if (Object.keys(featureValues).length > 0) {
+        chipValues.push(
+          ["Drop", featureValues.Drop],
+          ["Heel stack", featureValues["Heel stack"]],
+          ["Forefoot stack", featureValues["Forefoot stack"]],
+          ["Weight", featureValues.Weight],
+          ["Torsional rigidity", featureValues["Torsional rigidity"]]
+        );
+      }
+      
+      const chipValuesHtml = chipValues
         .filter(([, value]) => value !== null && value !== undefined)
         .map(([label, value]) => `<span class="chip">${escapeHtml(label)}: ${escapeHtml(formatMetricValue(value, label))}</span>`)
         .join("");
 
-      // Create URL link if source_url exists
+      // Create URL link - for supervised model, we need to get it from the catalog
       const urlLink = item.source_url 
         ? `<a href="${escapeHtml(item.source_url)}" target="_blank" rel="noopener noreferrer" class="url-link">View Review →</a>`
         : '';
@@ -161,12 +184,12 @@ function renderRecommendations(items) {
         <article class="recommendation-card">
           <div class="recommendation-header">
             <div>
-              <h4 class="recommendation-title">${escapeHtml(item.shoe_name)}</h4>
+              <h4 class="recommendation-title">${escapeHtml(item.shoe_name || item.display_name || '')}</h4>
               <p class="recommendation-subtitle">${escapeHtml(item.brand)} · ${matchPercentage}% Match</p>
             </div>
             <span class="chip match-score">${matchPercentage}%</span>
           </div>
-          <div class="chip-row">${chipValues || '<span class="chip muted-card">No feature values</span>'}</div>
+          <div class="chip-row">${chipValuesHtml || '<span class="chip muted-card">No feature values</span>'}</div>
           ${urlLink}
         </article>
       `;
