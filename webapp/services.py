@@ -6,13 +6,14 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-# Try to import the supervised matching service first
+from shoe_clustering import DEFAULT_DB_PATH
+
+# Try to import the supervised matching service
 try:
     from supervised_matching_service import get_matching_service
     SUPERVISED_MATCHING_AVAILABLE = True
 except ImportError:
     SUPERVISED_MATCHING_AVAILABLE = False
-    from shoe_clustering import DEFAULT_DB_PATH, recommend_similar_shoes
 
 logger = logging.getLogger(__name__)
 

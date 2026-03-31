@@ -20,6 +20,9 @@ from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
+# Import clustering functionality
+from shoe_clustering import ShoeKMeansClusterer
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,8 @@ class SupervisedShoeMatcher:
         self.scaler = StandardScaler()
         self.feature_columns = None
         self.shoes_df = None
+        self.clusterer = None
+        self.shoe_features = None
         
     def load_shoes_from_db(self, db_path: Path = DEFAULT_DB_PATH) -> pd.DataFrame:
         """Load all shoes from the database and flatten lab test results."""
@@ -79,9 +84,14 @@ class SupervisedShoeMatcher:
         # Create feature columns
         for feature in DEFAULT_FEATURES:
             df[feature] = None
+        
+        # Add categorical columns
+        df['Terrain'] = None
+        df['Arch Support'] = None
             
         # Extract features using aliases
         for idx, results in enumerate(lab_results):
+            # Extract numeric features
             for feature, aliases in FEATURE_ALIASES.items():
                 for alias in aliases:
                     if alias in results and results[alias] is not None:
@@ -92,27 +102,82 @@ class SupervisedShoeMatcher:
                             break
                         except (ValueError, TypeError):
                             continue
+            
+            # Extract categorical features
+            if 'Terrain' in results and results['Terrain'] is not None:
+                df.at[df.index[idx], 'Terrain'] = results['Terrain']
+            if 'Arch Support' in results and results['Arch Support'] is not None:
+                df.at[df.index[idx], 'Arch Support'] = results['Arch Support']
         
         # Filter to shoes with at least some features
         feature_cols = [col for col in df.columns if col in DEFAULT_FEATURES]
         df = df.dropna(subset=feature_cols, thresh=3).copy()  # Require at least 3 features
         
         self.shoes_df = df
+        
+        # Initialize and fit clusterer
+        self._initialize_clusterer()
+        
         logger.info(f"Loaded {len(df)} shoes with lab test data")
         return df
     
+    def _initialize_clusterer(self) -> None:
+        """Initialize and fit the K-Means clusterer."""
+        self.clusterer = ShoeKMeansClusterer(random_state=42)
+        self.clusterer.fit()
+        
+        # Merge cluster labels back to original shoes dataframe using shoe_id
+        cluster_df = pd.DataFrame({
+            'shoe_id': self.clusterer.shoe_frame['shoe_id'],
+            'cluster_label': self.clusterer.labels_
+        })
+        
+        # Merge to keep only shoes that have cluster labels
+        self.shoes_df = self.shoes_df.merge(cluster_df, on='shoe_id', how='inner')
+        
+        # Get the feature matrix for distance calculations
+        imputer = SimpleImputer(strategy="median")
+        scaler = StandardScaler()
+        
+        # Extract features for clustering
+        feature_matrix = self.shoes_df[DEFAULT_FEATURES].copy()
+        imputed = imputer.fit_transform(feature_matrix)
+        self.shoe_features = scaler.fit_transform(imputed)
+        
+        logger.info(f"Initialized K-Means with {self.clusterer.model.n_clusters} clusters")
+    
+    def _calculate_euclidean_distance(self, shoe_a_idx: int, shoe_b_idx: int) -> float:
+        """Calculate Euclidean distance between two shoes in feature space."""
+        if self.shoe_features is None:
+            return 0.0
+        return np.linalg.norm(self.shoe_features[shoe_a_idx] - self.shoe_features[shoe_b_idx])
+    
     def calculate_delta_features(self, shoe_a: pd.Series, shoe_b: pd.Series) -> Dict[str, float]:
-        """Calculate absolute differences between shoe features."""
+        """Calculate directional differences between shoe features (shoe_b - shoe_a)."""
         deltas = {}
         
+        # Numeric features
         for feature in DEFAULT_FEATURES:
             val_a = shoe_a[feature] if pd.notna(shoe_a[feature]) else None
             val_b = shoe_b[feature] if pd.notna(shoe_b[feature]) else None
             
             if val_a is not None and val_b is not None:
-                deltas[f'delta_{feature.lower().replace(" ", "_")}'] = abs(val_a - val_b)
+                # Use directional difference (shoe_b - shoe_a) instead of absolute
+                deltas[f'diff_{feature.lower().replace(" ", "_")}'] = val_b - val_a
             else:
-                deltas[f'delta_{feature.lower().replace(" ", "_")}'] = np.nan
+                deltas[f'diff_{feature.lower().replace(" ", "_")}'] = np.nan
+        
+        # Categorical features
+        deltas['is_same_terrain'] = 1 if shoe_a.get('Terrain') == shoe_b.get('Terrain') else 0
+        deltas['is_same_support'] = 1 if shoe_a.get('Arch Support') == shoe_b.get('Arch Support') else 0
+        
+        # K-Means clustering features
+        deltas['is_same_kmeans_cluster'] = 1 if shoe_a.get('cluster_label') == shoe_b.get('cluster_label') else 0
+        
+        # Calculate Euclidean distance between shoes in feature space
+        shoe_a_idx = self.shoes_df[self.shoes_df['shoe_id'] == shoe_a['shoe_id']].index[0]
+        shoe_b_idx = self.shoes_df[self.shoes_df['shoe_id'] == shoe_b['shoe_id']].index[0]
+        deltas['euclidean_distance'] = self._calculate_euclidean_distance(shoe_a_idx, shoe_b_idx)
         
         return deltas
     
@@ -132,9 +197,13 @@ class SupervisedShoeMatcher:
         
         df = pd.read_csv(dataset_path)
         
-        # Extract feature columns (delta features)
-        delta_columns = [col for col in df.columns if col.startswith('delta_')]
-        X = df[delta_columns].copy()
+        # Extract feature columns (diff features instead of delta features)
+        diff_columns = [col for col in df.columns if col.startswith('diff_')]
+        # Also include categorical features if present
+        categorical_columns = [col for col in df.columns if col.startswith('is_same_')]
+        feature_columns = diff_columns + categorical_columns
+        
+        X = df[feature_columns].copy()
         y = df['similarity_score'].copy()
         
         # Remove any rows with all NaN features
@@ -175,7 +244,7 @@ class SupervisedShoeMatcher:
             )
         
         self.model.fit(X_train_scaled, y_train)
-        self.feature_columns = delta_columns
+        self.feature_columns = feature_columns
         
         # Evaluate
         y_pred = self.model.predict(X_test_scaled)
@@ -303,7 +372,9 @@ class SupervisedShoeMatcher:
             'imputer': self.imputer,
             'scaler': self.scaler,
             'feature_columns': self.feature_columns,
-            'model_type': self.model_type
+            'model_type': self.model_type,
+            'clusterer': self.clusterer,  # Save clusterer as well
+            'shoe_features': self.shoe_features  # Save feature matrix
         }
         
         with open(model_path, 'wb') as f:
@@ -324,6 +395,11 @@ class SupervisedShoeMatcher:
         self.scaler = model_data['scaler']
         self.feature_columns = model_data['feature_columns']
         self.model_type = model_data['model_type']
+        
+        # Load clusterer and features if available (for newer models)
+        if 'clusterer' in model_data:
+            self.clusterer = model_data['clusterer']
+            self.shoe_features = model_data.get('shoe_features')
         
         logger.info(f"Model loaded from {model_path}")
 

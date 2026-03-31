@@ -17,6 +17,11 @@ import google.generativeai as genai
 import numpy as np
 import pandas as pd
 from dotenv import load_dotenv
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import StandardScaler
+
+# Import clustering functionality
+from shoe_clustering import ShoeKMeansClusterer
 
 # Load environment variables
 load_dotenv()
@@ -97,8 +102,8 @@ def init_gemini() -> Any:
     return model
 
 
-def create_similarity_prompt(shoe_a: Dict[str, Any], shoe_b: Dict[str, Any]) -> str:
-    """Create a prompt for Gemini to rate shoe similarity."""
+def create_batch_similarity_prompt(shoe_pairs: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> str:
+    """Create a prompt for Gemini to rate multiple shoe pairs in a single batch."""
     
     # Format shoe specs for the prompt
     def format_shoe_specs(shoe: Dict[str, Any]) -> str:
@@ -106,58 +111,86 @@ def create_similarity_prompt(shoe_a: Dict[str, Any], shoe_b: Dict[str, Any]) -> 
         for feature in DEFAULT_FEATURES:
             if feature in shoe and shoe[feature] is not None:
                 specs.append(f"{feature}: {shoe[feature]}")
+        # Add terrain and support type if available
+        if 'Terrain' in shoe and shoe['Terrain'] is not None:
+            specs.append(f"Terrain: {shoe['Terrain']}")
+        if 'Arch Support' in shoe and shoe['Arch Support'] is not None:
+            specs.append(f"Arch Support: {shoe['Arch Support']}")
         return "\n".join(specs) if specs else "No specifications available"
     
-    prompt = f"""You are an expert running shoe fitter. I am going to give you the lab specifications for Shoe A and Shoe B.
+    prompt = """You are an expert running shoe fitter. Evaluate the following pairs of shoes.
+Rate how good of an alternative Shoe B is for a runner who loves Shoe A (0-100).
 
-Shoe A ({shoe_a['brand']} {shoe_a['shoe_name']}):
-{format_shoe_specs(shoe_a)}
-
-Shoe B ({shoe_b['brand']} {shoe_b['shoe_name']}):
-{format_shoe_specs(shoe_b)}
-
-Rate how good of an alternative Shoe B is for a runner who loves Shoe A on a scale of 0 to 100. Consider:
+Consider:
 - Drop (heel-to-toe offset) differences
 - Stack height and cushioning similarity  
 - Weight differences
 - Energy return characteristics
+- Terrain compatibility (road vs trail)
+- Support type compatibility (neutral vs stability)
 - Overall ride feel based on the lab measurements
 
-Output ONLY a JSON object like {{"similarity_score": 85}} where 100 means a perfect alternative and 0 means completely unsuitable."""
+Respond ONLY with a valid JSON array of objects.
+Example format:
+[
+  {"pair_id": 0, "similarity_score": 85},
+  {"pair_id": 1, "similarity_score": 42}
+]
+
+Pairs to evaluate:
+"""
+    
+    for i, (shoe_a, shoe_b) in enumerate(shoe_pairs):
+        prompt += f"\nPair {i}:\n"
+        prompt += f"Shoe A ({shoe_a['brand']} {shoe_a['shoe_name']}):\n"
+        prompt += f"{format_shoe_specs(shoe_a)}\n\n"
+        prompt += f"Shoe B ({shoe_b['brand']} {shoe_b['shoe_name']}):\n"
+        prompt += f"{format_shoe_specs(shoe_b)}\n"
     
     return prompt
 
 
-def get_gemini_similarity_score(model: Any, shoe_a: Dict[str, Any], shoe_b: Dict[str, Any]) -> float:
-    """Get similarity score from Gemini API for a shoe pair."""
+def get_gemini_batch_similarity_scores(model: Any, shoe_pairs: List[Tuple[Dict[str, Any], Dict[str, Any]]]) -> List[float]:
+    """Get similarity scores from Gemini API for a batch of shoe pairs."""
     
-    prompt = create_similarity_prompt(shoe_a, shoe_b)
+    prompt = create_batch_similarity_prompt(shoe_pairs)
     
     try:
-        response = model.generate_content(prompt)
-        response_text = response.text.strip()
+        response = model.generate_content(
+            prompt,
+            generation_config=genai.GenerationConfig(
+                response_mime_type="application/json"
+            )
+        )
         
-        # Extract JSON from response
-        if '{' in response_text and '}' in response_text:
-            json_start = response_text.find('{')
-            json_end = response_text.rfind('}') + 1
-            json_str = response_text[json_start:json_end]
-            
-            result = json.loads(json_str)
-            score = float(result.get('similarity_score', 0))
-            return max(0, min(100, score))  # Clamp to 0-100 range
+        # Parse the JSON response
+        results = json.loads(response.text)
+        
+        # Extract scores in order
+        scores = []
+        for i in range(len(shoe_pairs)):
+            # Find the result for this pair_id
+            pair_result = next((r for r in results if r.get('pair_id') == i), None)
+            if pair_result and 'similarity_score' in pair_result:
+                score = float(pair_result['similarity_score'])
+                scores.append(max(0, min(100, score)))  # Clamp to 0-100 range
+            else:
+                logger.warning(f"No score found for pair {i}")
+                scores.append(0.0)
+        
+        return scores
         
     except Exception as e:
-        logger.warning(f"Error getting Gemini score for {shoe_a['shoe_name']} vs {shoe_b['shoe_name']}: {e}")
-    
-    return 0.0
+        logger.warning(f"Error getting Gemini batch scores: {e}")
+        # Return zeros for all pairs on error
+        return [0.0] * len(shoe_pairs)
 
 
 def generate_synthetic_dataset(
     db_path: Path = DEFAULT_DB_PATH,
     output_path: Path = Path("data/synthetic_similarity_dataset.csv"),
-    num_pairs: int = 10000,
-    batch_size: int = 100,
+    num_pairs: int = 50000,  # Increased from 10,000 to 50,000
+    batch_size: int = 15,  # Optimal batch size for Gemini API
     max_retries: int = 3
 ) -> None:
     """Generate synthetic dataset of shoe similarity scores."""
@@ -169,18 +202,46 @@ def generate_synthetic_dataset(
     if len(shoes_df) < 2:
         raise ValueError("Need at least 2 shoes with lab data to generate pairs")
     
+    # Initialize and fit clusterer
+    clusterer = ShoeKMeansClusterer(random_state=42)
+    clusterer.fit()
+    
+    # Merge cluster labels back to original shoes dataframe using shoe_id
+    cluster_df = pd.DataFrame({
+        'shoe_id': clusterer.shoe_frame['shoe_id'],
+        'cluster_label': clusterer.labels_
+    })
+    
+    # Merge to keep only shoes that have cluster labels
+    shoes_df = shoes_df.merge(cluster_df, on='shoe_id', how='inner')
+    
+    # Get feature matrix for distance calculations
+    imputer = SimpleImputer(strategy="median")
+    scaler = StandardScaler()
+    feature_matrix = shoes_df[DEFAULT_FEATURES].copy()
+    imputed = imputer.fit_transform(feature_matrix)
+    shoe_features = scaler.fit_transform(imputed)
+    
+    def calculate_euclidean_distance(shoe_a_idx: int, shoe_b_idx: int) -> float:
+        """Calculate Euclidean distance between two shoes in feature space."""
+        return np.linalg.norm(shoe_features[shoe_a_idx] - shoe_features[shoe_b_idx])
+    
     # Initialize Gemini
     model = init_gemini()
     
     # Prepare output data
     dataset = []
     
-    # Generate random pairs
+    # Generate random pairs in batches
     for batch_start in range(0, num_pairs, batch_size):
         batch_end = min(batch_start + batch_size, num_pairs)
         batch_pairs = batch_end - batch_start
         
         logger.info(f"Processing batch {batch_start//batch_size + 1}: pairs {batch_start+1}-{batch_end}")
+        
+        # Prepare batch of shoe pairs
+        shoe_pairs = []
+        batch_entries = []
         
         for i in range(batch_pairs):
             # Sample two random shoes
@@ -188,51 +249,78 @@ def generate_synthetic_dataset(
             shoe_a = shoes_df.iloc[shoe_a_idx]
             shoe_b = shoes_df.iloc[shoe_b_idx]
             
+            # Parse lab test results to get terrain and support type
+            lab_a = json.loads(shoe_a['lab_test_results']) if pd.notna(shoe_a['lab_test_results']) else {}
+            lab_b = json.loads(shoe_b['lab_test_results']) if pd.notna(shoe_b['lab_test_results']) else {}
+            
             # Prepare shoe data for prompt
             shoe_a_data = {
                 'brand': shoe_a['brand'],
                 'shoe_name': shoe_a['shoe_name'],
-                **{feature: shoe_a[feature] for feature in DEFAULT_FEATURES if pd.notna(shoe_a[feature])}
+                **{feature: shoe_a[feature] for feature in DEFAULT_FEATURES if pd.notna(shoe_a[feature])},
+                'Terrain': lab_a.get('Terrain'),
+                'Arch Support': lab_a.get('Arch Support')
             }
             shoe_b_data = {
                 'brand': shoe_b['brand'],
                 'shoe_name': shoe_b['shoe_name'],
-                **{feature: shoe_b[feature] for feature in DEFAULT_FEATURES if pd.notna(shoe_b[feature])}
+                **{feature: shoe_b[feature] for feature in DEFAULT_FEATURES if pd.notna(shoe_b[feature])},
+                'Terrain': lab_b.get('Terrain'),
+                'Arch Support': lab_b.get('Arch Support')
             }
             
-            # Get similarity score with retries
-            similarity_score = 0.0
-            for attempt in range(max_retries):
-                similarity_score = get_gemini_similarity_score(model, shoe_a_data, shoe_b_data)
-                if similarity_score > 0:
-                    break
-                if attempt < max_retries - 1:
-                    time.sleep(2 ** attempt)  # Exponential backoff
+            shoe_pairs.append((shoe_a_data, shoe_b_data))
             
-            # Calculate feature differences
+            # Pre-calculate feature differences for storage
             feature_diffs = {}
             for feature in DEFAULT_FEATURES:
                 val_a = shoe_a[feature] if pd.notna(shoe_a[feature]) else None
                 val_b = shoe_b[feature] if pd.notna(shoe_b[feature]) else None
                 
                 if val_a is not None and val_b is not None:
-                    feature_diffs[f'delta_{feature.lower().replace(" ", "_")}'] = abs(val_a - val_b)
+                    # Use directional difference instead of absolute
+                    feature_diffs[f'diff_{feature.lower().replace(" ", "_")}'] = val_b - val_a
                 else:
-                    feature_diffs[f'delta_{feature.lower().replace(" ", "_")}'] = None
+                    feature_diffs[f'diff_{feature.lower().replace(" ", "_")}'] = None
             
-            # Store dataset entry
+            # Add categorical features
+            feature_diffs['is_same_terrain'] = 1 if lab_a.get('Terrain') == lab_b.get('Terrain') else 0
+            feature_diffs['is_same_support'] = 1 if lab_a.get('Arch Support') == lab_b.get('Arch Support') else 0
+            
+            # Add K-Means clustering features
+            feature_diffs['is_same_kmeans_cluster'] = 1 if shoe_a['cluster_label'] == shoe_b['cluster_label'] else 0
+            feature_diffs['euclidean_distance'] = calculate_euclidean_distance(shoe_a_idx, shoe_b_idx)
+            
+            # Store dataset entry (without score for now)
             entry = {
                 'shoe_a_id': shoe_a['shoe_id'],
                 'shoe_a_name': f"{shoe_a['brand']} {shoe_a['shoe_name']}",
                 'shoe_b_id': shoe_b['shoe_id'],
                 'shoe_b_name': f"{shoe_b['brand']} {shoe_b['shoe_name']}",
-                'similarity_score': similarity_score,
+                'similarity_score': 0.0,  # Placeholder
                 **feature_diffs
             }
-            dataset.append(entry)
-            
-            if (batch_start + i + 1) % 10 == 0:
-                logger.info(f"Generated {batch_start + i + 1}/{num_pairs} pairs")
+            batch_entries.append(entry)
+        
+        # Get similarity scores for the entire batch
+        similarity_scores = []
+        for attempt in range(max_retries):
+            similarity_scores = get_gemini_batch_similarity_scores(model, shoe_pairs)
+            if any(score > 0 for score in similarity_scores):
+                break
+            if attempt < max_retries - 1:
+                logger.warning(f"Batch failed, retrying... (attempt {attempt + 2})")
+                time.sleep(2 ** attempt)  # Exponential backoff
+        
+        # Update entries with scores
+        for i, score in enumerate(similarity_scores):
+            batch_entries[i]['similarity_score'] = score
+        
+        # Add to dataset
+        dataset.extend(batch_entries)
+        
+        if (batch_end) % 50 == 0:
+            logger.info(f"Generated {batch_end}/{num_pairs} pairs")
         
         # Save batch progress
         if dataset:
@@ -241,7 +329,7 @@ def generate_synthetic_dataset(
         
         # Rate limiting - sleep between batches
         if batch_end < num_pairs:
-            sleep_time = 1 + (batch_start // batch_size) * 0.5  # Gradually increase delay
+            sleep_time = 1.5
             logger.info(f"Sleeping {sleep_time:.1f}s before next batch...")
             time.sleep(sleep_time)
     
@@ -262,6 +350,6 @@ def generate_synthetic_dataset(
 if __name__ == "__main__":
     # Generate dataset
     generate_synthetic_dataset(
-        num_pairs=100,  # Medium size for better training
-        batch_size=25   # Larger batches for faster processing
+        num_pairs=50000,  # Increased to 50,000 for better training
+        batch_size=15   # Optimal batch size for Gemini API
     )
