@@ -38,3 +38,6 @@ data/*.pkl
 # Temporary files
 *.tmp
 *.temp
+__pycache__/
+*.pyc
+*.png
