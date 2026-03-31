@@ -17,6 +17,11 @@ const matchedTitle = document.getElementById("matched-title");
 const matchedShoe = document.getElementById("matched-shoe");
 const recommendations = document.getElementById("recommendations");
 
+// How It Works Modal
+const howItWorksBtn = document.getElementById("how-it-works-btn");
+const howItWorksOverlay = document.getElementById("how-it-works-overlay");
+const closeModalBtn = document.getElementById("close-modal-btn");
+
 function escapeHtml(value) {
   return String(value)
     .replaceAll("&", "&amp;")
@@ -313,6 +318,35 @@ terrainSelect.addEventListener("change", async () => {
 });
 
 matchButton.addEventListener("click", runMatcher);
+
+// How It Works Modal Functions
+function openModal() {
+  howItWorksOverlay.classList.remove("hidden");
+  document.body.style.overflow = "hidden"; // Prevent background scrolling
+}
+
+function closeModal() {
+  howItWorksOverlay.classList.add("hidden");
+  document.body.style.overflow = ""; // Restore scrolling
+}
+
+// Modal Event Listeners
+howItWorksBtn.addEventListener("click", openModal);
+closeModalBtn.addEventListener("click", closeModal);
+
+// Close modal when clicking backdrop
+howItWorksOverlay.addEventListener("click", (event) => {
+  if (event.target === howItWorksOverlay || event.target.classList.contains("modal-backdrop")) {
+    closeModal();
+  }
+});
+
+// Close modal with Escape key
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !howItWorksOverlay.classList.contains("hidden")) {
+    closeModal();
+  }
+});
 
 window.addEventListener("DOMContentLoaded", async () => {
   try {

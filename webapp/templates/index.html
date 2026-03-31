@@ -19,7 +19,16 @@
             <h1>Shoe Matcher</h1>
           </div>
         </div>
-        <p class="topbar-copy">Pick a terrain, choose a shoe, and get similar models from the lab-test dataset.</p>
+        <div class="topbar-actions">
+          <button id="how-it-works-btn" class="how-it-works-btn" aria-label="How it works">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path>
+              <line x1="12" y1="17" x2="12.01" y2="17"></line>
+            </svg>
+          </button>
+          <p class="topbar-copy">Pick a terrain, choose a shoe, and get similar models from the lab-test dataset.</p>
+        </div>
       </header>
 
       <main class="layout">
@@ -115,6 +124,52 @@
           </article>
         </section>
       </main>
+    </div>
+
+    <!-- How It Works Modal -->
+    <div id="how-it-works-overlay" class="modal-overlay hidden">
+      <div class="modal-backdrop"></div>
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>How Our Shoe Matchmaker Actually Works</h2>
+          <button id="close-modal-btn" class="close-btn" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="prose">
+            <p>Ever wonder how we find the perfect alternative to your favorite running shoe? It takes a bit more than just filtering by brand or "neutral vs. stability." We've built a custom recommendation engine that combines hard statistical data with the intuition of an expert shoe fitter.</p>
+            
+            <p>Here is a peek under the hood at how we built it!</p>
+            
+            <h3>1. The Problem with "Shoe Categories"</h3>
+            <p>Most shoe recommendation tools use basic algorithms that group shoes into rigid boxes (like "Max Cushion Daily Trainer"). The problem with boxes is the "hard boundary." If your favorite shoe sits right on the edge of a box, the algorithm won't recommend a nearly identical shoe simply because it got sorted into the box next door. We wanted to look at shoes as a continuous, mathematical spectrum, not just a set of categories.</p>
+            
+            <h3>2. The Data & The AI "Teacher"</h3>
+            <p>We started with a massive dataset of open-source, objective lab tests. We are talking about exact millimeter measurements for heel drop and stack height, exact grams for weight, and specific foam softness scores.</p>
+            
+            <p>But raw numbers don't tell the whole story—context matters. Moving from an 8mm drop to a 4mm drop feels different than moving the other way around. To capture this human element, we used a highly advanced AI to act as our "Teacher." We fed the AI thousands of random shoe pairings and their lab specs, asking it to score how good of an alternative Shoe B is for a runner who loves Shoe A on a 0-100 scale.</p>
+            
+            <h3>3. Training Our Engine</h3>
+            <p>Once we had tens of thousands of these expert grades, we trained our own lightning-fast matching model (the "Student") to learn the rules.</p>
+            
+            <p>Our engine essentially learned "runner's math." By analyzing the differences between the shoes and the scores the AI gave them, it figured out what runners actually care about. It learned, for example, that a shoe being slightly lighter is usually a bonus, but a massive change in midsole softness is a dealbreaker.</p>
+            
+            <h3>4. The Sanity Check: Testing the AI</h3>
+            <p>We didn't just blindly trust the AI, though! LLMs are great at reasoning, but they can sometimes hallucinate.</p>
+            
+            <p>To prove our engine worked, we ran a strict mathematical evaluation. We compared our new model's predictions against a traditional, geometry-based algorithm (K-Means clustering) that calculates the literal, statistical distance between two shoes. The results? Our new model improved accuracy by over 90% compared to the old baseline. It successfully captured the nuanced, human-like fitting advice of the AI, while proving mathematically that the recommended shoes were physically incredibly similar based on the open-source lab data.</p>
+            
+            <h3>The Result</h3>
+            <p>When you select a shoe on our site, our engine instantly compares it to every other shoe in our database. It calculates the exact physical differences and runs them through our trained model to give you a true Match Percentage.</p>
+            
+            <p>It's basically like having a master shoe fitter who also happens to be a massive math nerd, ready to find your next favorite pair!</p>
+          </div>
+        </div>
+      </div>
     </div>
   </body>
 </html>
