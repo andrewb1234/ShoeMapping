@@ -43,6 +43,15 @@ DEFAULT_FEATURES = [
     "Torsional rigidity",
 ]
 
+PACE_LABELS = [
+    "5K and 10K",
+    "Competition",
+    "Daily running",
+    "Half marathon",
+    "Marathon",
+    "Tempo",
+]
+
 FEATURE_ALIASES: Dict[str, Sequence[str]] = {
     "Drop": ("Drop",),
     "Heel stack": ("Heel stack",),
@@ -105,6 +114,7 @@ class ShoeKMeansClusterer:
         random_state: int = 42,
         missing_threshold: float = 0.3,
         features: Optional[List[str]] = None,
+        include_pace: bool = True,
     ) -> None:
         self.db_path = Path(db_path) if db_path else None
         self.catalog_path = Path(catalog_path) if catalog_path else DEFAULT_CATALOG_PATH
@@ -113,8 +123,13 @@ class ShoeKMeansClusterer:
         self.terrain_filter = terrain_filter
         self.random_state = random_state
         self.missing_threshold = missing_threshold
+        self.include_pace = include_pace
         self.features = features or DEFAULT_FEATURES.copy()
         self.feature_names = self.features.copy()
+        if self.include_pace:
+            self.pace_feature_names = [f"pace_{label.lower().replace(' ', '_')}" for label in PACE_LABELS]
+        else:
+            self.pace_feature_names: List[str] = []
 
         # Runtime state
         self.model: Optional[KMeans] = None
@@ -239,6 +254,18 @@ class ShoeKMeansClusterer:
                 return alias_key, lab_results.get(alias_key)
         return None, None
 
+    @staticmethod
+    def _parse_pace_one_hot(lab_results: Dict[str, Any]) -> Dict[str, int]:
+        """Parse multi-label Pace field into one-hot binary columns."""
+        pace_raw = lab_results.get("Pace", "")
+        if not pace_raw:
+            pace_raw = ""
+        pace_tokens = {token.strip() for token in str(pace_raw).split("|") if token.strip()}
+        return {
+            f"pace_{label.lower().replace(' ', '_')}": int(label in pace_tokens)
+            for label in PACE_LABELS
+        }
+
     def _build_feature_frame(self, shoe_rows: pd.DataFrame) -> pd.DataFrame:
         rows: List[Dict[str, Any]] = []
         search_keys: List[str] = []
@@ -253,20 +280,25 @@ class ShoeKMeansClusterer:
                 feature_values[feature_name] = self._parse_numeric(raw_value)
                 raw_feature_values[feature_name] = None if raw_key is None else str(raw_value)
 
-            rows.append(
-                {
-                    "shoe_id": row["shoe_id"],
-                    "brand": row["brand"],
-                    "shoe_name": row["shoe_name"],
-                    "source_url": row["source_url"],
-                    "audience_verdict": row["audience_verdict"],
-                    "crawled_at": row["crawled_at"],
-                    "lab_test_results": lab_results,
-                    "feature_values": feature_values,
-                    "raw_feature_values": raw_feature_values,
-                    **feature_values,
-                }
-            )
+            row_dict: Dict[str, Any] = {
+                "shoe_id": row["shoe_id"],
+                "brand": row["brand"],
+                "shoe_name": row["shoe_name"],
+                "source_url": row["source_url"],
+                "audience_verdict": row["audience_verdict"],
+                "crawled_at": row["crawled_at"],
+                "lab_test_results": lab_results,
+                "feature_values": feature_values,
+                "raw_feature_values": raw_feature_values,
+                **feature_values,
+            }
+
+            if self.include_pace:
+                pace_cols = self._parse_pace_one_hot(lab_results)
+                row_dict.update(pace_cols)
+                feature_values.update({k: float(v) for k, v in pace_cols.items()})
+
+            rows.append(row_dict)
             search_keys.append(self._normalize_text(row["shoe_name"]))
 
         feature_frame = pd.DataFrame(rows)
@@ -276,6 +308,39 @@ class ShoeKMeansClusterer:
         feature_frame = feature_frame.reset_index(drop=True)
         self._search_keys = self._search_keys.reset_index(drop=True)
         return feature_frame
+
+    def _apply_missing_threshold(self, feature_frame: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
+        """Filter numeric features by missing-value threshold and append pace one-hot columns."""
+        feature_matrix = feature_frame[self.feature_names]
+        missing_counts = feature_matrix.isna().sum()
+        total_shoes = len(feature_matrix)
+
+        features_to_keep = []
+        for feature in self.feature_names:
+            missing_pct = (missing_counts[feature] / total_shoes) * 100
+            if missing_pct > 30:
+                logger.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values (>30%), excluding from clustering")
+            else:
+                features_to_keep.append(feature)
+
+        if not features_to_keep:
+            raise ValueError("No features have sufficient data (<30% missing) for clustering")
+
+        self.feature_names = features_to_keep
+        numeric_matrix = feature_matrix[self.feature_names]
+
+        imputed = self.imputer.fit_transform(numeric_matrix)
+        scaled = self.scaler.fit_transform(imputed)
+
+        all_feature_names = list(self.feature_names)
+
+        if self.include_pace and self.pace_feature_names:
+            pace_matrix = feature_frame[self.pace_feature_names].fillna(0).values.astype(float)
+            scaled = np.hstack([scaled, pace_matrix])
+            all_feature_names.extend(self.pace_feature_names)
+            logger.info(f"Added {len(self.pace_feature_names)} Pace one-hot features: {self.pace_feature_names}")
+
+        return pd.DataFrame(scaled, columns=all_feature_names), all_feature_names
 
     def get_preprocessed_data(self) -> tuple[np.ndarray, List[str]]:
         """Get preprocessed feature matrix and feature names without fitting final model.
@@ -291,30 +356,11 @@ class ShoeKMeansClusterer:
         if feature_frame.empty:
             raise ValueError("No shoes contain enough feature data for clustering.")
 
-        # Check for features with >30% missing values
-        feature_matrix = feature_frame[self.feature_names]
-        missing_counts = feature_matrix.isna().sum()
-        total_shoes = len(feature_matrix)
-        
-        features_to_keep = []
-        for feature in self.feature_names:
-            missing_pct = (missing_counts[feature] / total_shoes) * 100
-            if missing_pct > 30:
-                logger.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values (>30%), excluding from clustering")
-            else:
-                features_to_keep.append(feature)
-        
-        if not features_to_keep:
-            raise ValueError("No features have sufficient data (<30% missing) for clustering")
-        
-        # Update feature names to only include features with sufficient data
-        self.feature_names = features_to_keep
-        feature_matrix = feature_matrix[self.feature_names]
-        
-        imputed = self.imputer.fit_transform(feature_matrix)
-        scaled = self.scaler.fit_transform(imputed)
-        
-        return scaled, self.feature_names
+        scaled_df, all_feature_names = self._apply_missing_threshold(feature_frame)
+        self.shoe_frame = feature_frame
+        self.feature_frame = scaled_df.copy()
+        self.feature_names = all_feature_names
+        return scaled_df.values, all_feature_names
 
     def fit(self) -> "ShoeKMeansClusterer":
         """Load shoes from SQLite and fit the clustering pipeline."""
@@ -326,37 +372,18 @@ class ShoeKMeansClusterer:
         if feature_frame.empty:
             raise ValueError("No shoes contain enough feature data for clustering.")
 
-        # Check for features with >30% missing values
-        feature_matrix = feature_frame[self.feature_names]
-        missing_counts = feature_matrix.isna().sum()
-        total_shoes = len(feature_matrix)
-        
-        features_to_keep = []
-        for feature in self.feature_names:
-            missing_pct = (missing_counts[feature] / total_shoes) * 100
-            if missing_pct > 30:
-                logger.warning(f"Feature '{feature}' has {missing_pct:.1f}% missing values (>30%), excluding from clustering")
-            else:
-                features_to_keep.append(feature)
-        
-        if not features_to_keep:
-            raise ValueError("No features have sufficient data (<30% missing) for clustering")
-        
-        # Update feature names to only include features with sufficient data
-        self.feature_names = features_to_keep
-        feature_matrix = feature_matrix[self.feature_names]
-        
-        imputed = self.imputer.fit_transform(feature_matrix)
-        scaled = self.scaler.fit_transform(imputed)
+        scaled_df, all_feature_names = self._apply_missing_threshold(feature_frame)
+        scaled = scaled_df.values
 
         effective_clusters = max(1, min(self.n_clusters, len(feature_frame)))
         self.model = KMeans(n_clusters=effective_clusters, random_state=self.random_state, n_init=10)
         self.model.fit(scaled)
 
         self.shoe_frame = feature_frame
-        self.feature_frame = feature_matrix.copy()
+        self.feature_frame = scaled_df.copy()
         self.scaled_matrix = scaled
         self.labels_ = self.model.labels_
+        self.feature_names = all_feature_names
         return self
 
     def _ensure_fitted(self) -> None:
@@ -434,7 +461,9 @@ class ShoeKMeansClusterer:
         query_vector = self.scaled_matrix[target_index].reshape(1, -1)
         cluster_label = int(self.model.predict(query_vector)[0])
         centroid_vector = self.model.cluster_centers_[cluster_label].reshape(1, -1)
-        centroid_raw = self.scaler.inverse_transform(centroid_vector)[0]
+        n_numeric = len(self.scaler.mean_)
+        centroid_numeric_raw = self.scaler.inverse_transform(centroid_vector[:, :n_numeric])[0]
+        centroid_raw = np.concatenate([centroid_numeric_raw, centroid_vector[0, n_numeric:]])
 
         target_cluster_indices = np.where(self.labels_ == cluster_label)[0]
         target_cluster_vectors = self.scaled_matrix[target_cluster_indices]
