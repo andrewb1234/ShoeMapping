@@ -15,6 +15,7 @@ check_gemini_models.py
 generate_catalog.py
 precompute_recommendations.py
 hybrid_kmeans_pipeline.py
+hybrid_matching_service.py
 
 # Data files not needed at runtime (precomputed JSONs are kept)
 data/*.sqlite

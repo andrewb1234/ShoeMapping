@@ -7,11 +7,14 @@ at runtime on Vercel instead of running ML inference live.
 
 Usage:
     source env/bin/activate
-    python precompute_recommendations.py
+    python precompute_recommendations.py                  # default: hybrid backend
+    python precompute_recommendations.py --backend hybrid  # ITML + K-Means
+    python precompute_recommendations.py --backend supervised  # XGBoost (Gemini-trained)
 
 Re-run whenever shoes are added (after running generate_catalog.py).
 """
 
+import argparse
 import json
 import time
 from datetime import datetime, timezone
@@ -20,19 +23,31 @@ from typing import Any, Dict, List
 
 # Import existing services
 from webapp.services import ShoeCatalogService
-from supervised_matching_service import get_matching_service
 
 TOP_K = 15  # recommendations stored per shoe (extra for reject/replace)
 OUTPUT_PATH = Path("data/precomputed_recommendations.json")
 
 
-def precompute() -> Dict[str, Any]:
+def _get_backend(backend_name: str):
+    """Return the matching service for the chosen backend."""
+    if backend_name == "supervised":
+        from supervised_matching_service import get_matching_service
+        return get_matching_service()
+    elif backend_name == "hybrid":
+        from hybrid_matching_service import get_hybrid_matching_service
+        return get_hybrid_matching_service()
+    else:
+        raise ValueError(f"Unknown backend: {backend_name!r}. Use 'supervised' or 'hybrid'.")
+
+
+def precompute(backend_name: str = "hybrid") -> Dict[str, Any]:
     """Return a dict keyed by shoe_id with top-K recommendations."""
 
     catalog = ShoeCatalogService()
     shoes = catalog.list_shoes()
-    supervised = get_matching_service()
+    service = _get_backend(backend_name)
 
+    print(f"Backend: {backend_name}")
     print(f"Computing recommendations for {len(shoes)} shoes (top {TOP_K} each)...")
 
     results: Dict[str, List[Dict[str, Any]]] = {}
@@ -44,7 +59,7 @@ def precompute() -> Dict[str, Any]:
         query = f"{shoe['brand']} {shoe['shoe_name']}"
 
         try:
-            recs = supervised.get_recommendations(
+            recs = service.get_recommendations(
                 shoe_name=query,
                 top_k=TOP_K,
                 exclude_same_brand=False,
@@ -92,7 +107,16 @@ def precompute() -> Dict[str, Any]:
 
 
 def main() -> None:
-    results = precompute()
+    parser = argparse.ArgumentParser(description="Pre-compute shoe recommendations")
+    parser.add_argument(
+        "--backend",
+        choices=["supervised", "hybrid"],
+        default="hybrid",
+        help="Matching backend: 'supervised' (XGBoost/Gemini) or 'hybrid' (ITML+KMeans). Default: hybrid",
+    )
+    args = parser.parse_args()
+
+    results = precompute(backend_name=args.backend)
 
     OUTPUT_PATH.parent.mkdir(exist_ok=True)
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:

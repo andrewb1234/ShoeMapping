@@ -1,262 +1,299 @@
-# ShoeMapping: Intelligent Running Shoe Recommendation System
+# ShoeMapping: Running Shoe Recommendation Engine
 
-This repository contains a complete shoe recommendation engine that crawls running shoe data from `https://runrepeat.com/`, trains supervised learning models, and serves recommendations via a web API. The system extracts shoe-specific **Lab Test Results**, **Specs**, and **Audience Verdict** scores, then uses advanced ML algorithms to find similar shoes.
+A complete ML-powered system that recommends similar running shoes based on objective lab-test data. The engine crawls shoe specifications from [RunRepeat](https://runrepeat.com/), learns a distance metric informed by LLM-generated similarity judgments, and serves pre-computed recommendations through a FastAPI web app deployed on Vercel.
 
-## Key Features
-- **Web crawler** for RunRepeat shoe data with lab test metrics
-- **Supervised XGBoost model** with 83% improvement over K-means baseline
-- **Pre-computed recommendations** for fast web deployment
-- **FastAPI web app** with live demo
-- **Vercel deployment** with serverless functions
+## Architecture Overview
 
-## Data Storage
+```
+┌─────────────┐     ┌──────────────────┐     ┌──────────────────────┐
+│  RunRepeat   │────▶│  SQLite Database │────▶│  ML Training Pipeline │
+│  Crawler     │     │  (lab test data) │     │  (ITML + K-Means)    │
+└─────────────┘     └──────────────────┘     └──────────┬───────────┘
+                                                        │
+                    ┌──────────────────┐                │
+                    │  Gemini API      │────────────────┘
+                    │  (pairwise       │   similarity constraints
+                    │   similarity)    │
+                    └──────────────────┘
+                                                        │
+                    ┌──────────────────┐     ┌──────────▼───────────┐
+                    │  shoes.catalog   │────▶│  precomputed_recs    │
+                    │  .json           │     │  .json (~2.5 MB)     │
+                    └──────────────────┘     └──────────┬───────────┘
+                                                        │
+                    ┌──────────────────┐     ┌──────────▼───────────┐
+                    │  Vercel          │◀────│  FastAPI Web App      │
+                    │  (serverless)    │     │  (reads JSON only)    │
+                    └──────────────────┘     └──────────────────────┘
+```
 
-Data is stored in a SQLite database optimized for ML workflows:
-
-### Schema
-- `shoe_id` (TEXT PRIMARY KEY) - Format: `"<brand>::<full_shoe_name>"`
-- `brand` (TEXT) - Extracted brand name
-- `shoe_name` (TEXT) - Full shoe name
-- `source_url` (TEXT) - Original RunRepeat URL
-- `audience_verdict` (INTEGER) - 0-100 score (nullable)
-- `lab_test_results` (JSON) - Dynamic metrics and Specs fields as JSON string
-- `crawled_at` (TEXT) - ISO timestamp
-
-### Output
-Default database: `data/runrepeat_lab_tests.sqlite`
+The website consumes **only** two static JSON files at runtime: `shoes.catalog.json` (shoe metadata) and `precomputed_recommendations.json` (top-15 recommendations per shoe). No ML libraries are installed on Vercel — this keeps the serverless Lambda well under the 500 MB size limit.
 
 ## Setup
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv env
+source env/bin/activate
+
+# Slim runtime deps (web app only)
 pip install -r requirements.txt
+
+# Full ML/training deps (local development)
+pip install -r requirements-full.txt
 ```
 
-## Usage
+A `GOOGLE_GEMINI_API_KEY` in `.env` is required for generating synthetic training data.
 
-### Crawling Data
-Quick test crawl:
+## Data Collection
+
+A web crawler discovers running shoe pages from RunRepeat's sitemap and extracts lab-test metrics, specs, and audience verdict scores into a SQLite database.
+
 ```bash
+# Quick test crawl
 python3 -m crawler.runrepeat_crawler --max-shoes 20 --workers 4
-```
 
-Full crawl (running shoes only):
-```bash
+# Full crawl (running shoes only)
 python3 -m crawler.runrepeat_crawler --workers 8
-```
 
-Fresh rebuild with a clean database:
-```bash
+# Fresh rebuild with clean database
 python3 -m crawler.runrepeat_crawler --workers 8 --rebuild-db
 ```
 
-Custom output location:
-```bash
-python3 -m crawler.runrepeat_crawler --output data/custom_shoes.sqlite
-```
+### Database Schema
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `shoe_id` | TEXT PK | Format: `"<brand>::<shoe_name>"` |
+| `brand` | TEXT | Extracted brand name |
+| `shoe_name` | TEXT | Full shoe name |
+| `source_url` | TEXT | RunRepeat URL |
+| `audience_verdict` | INTEGER | User rating 0–100 (nullable) |
+| `lab_test_results` | JSON | Dynamic metrics and specs |
+| `crawled_at` | TEXT | ISO timestamp |
+
+Default path: `data/runrepeat_lab_tests.sqlite`
 
 ### ML Data Access
+
 ```python
-import sqlite3
-import pandas as pd
+import sqlite3, pandas as pd
 from pandas import json_normalize
 
-# Load data for ML
 conn = sqlite3.connect('data/runrepeat_lab_tests.sqlite')
 df = pd.read_sql_query("SELECT * FROM shoes", conn)
-
-# Flatten JSON metrics and Specs fields for modeling
-metrics_df = json_normalize(df['lab_test_results'])
+metrics_df = json_normalize(df['lab_test_results'].apply(json.loads))
 final_df = pd.concat([df.drop('lab_test_results', axis=1), metrics_df], axis=1)
 ```
 
-## Features
+### Crawler Features
 
-- **Running shoes focus**: Crawls only `/sitemap/running-shoes` category
-- **Cloudflare bypass**: Uses `cloudscraper` for reliable access
-- **Incremental updates**: Skips already crawled shoes automatically
-- **Dynamic metrics**: Handles varying lab test configurations per shoe
-- **Specs extraction**: Captures `Terrain`, `Arch Support`, `Pronation`, `Arch Type`, `Use`, `Strike Pattern`, and `Pace`
-- **ML-ready**: Direct Pandas integration with JSON normalization
-- **Audience Verdict**: Captures user rating scores (0-100)
+- **Running shoes only** — crawls `/sitemap/running-shoes`
+- **Cloudflare bypass** — uses `cloudscraper`
+- **Incremental updates** — skips already-crawled shoes
+- **Dynamic metrics** — handles varying lab test configurations per shoe
+- **Specs extraction** — Terrain, Arch Support, Pronation, Arch Type, Use, Strike Pattern, Pace
 
-## Activity Data Processing
+## Recommendation Algorithms
 
-For clustering analysis, use the built-in data preprocessor:
+Three recommendation approaches are implemented, each building on the previous:
 
-```python
-from data_preprocessor import ActivityDataProcessor
+### 1. K-Means Clustering (Baseline)
 
-# Initialize processor
-processor = ActivityDataProcessor()
+Standard K-Means on scaled lab-test features. Assigns shoes to clusters and returns in-cluster neighbors ranked by Euclidean distance.
 
-# Process your activity CSV
-processed_data = processor.process("your_activities.csv")
-
-# Save for clustering
-processor.save_processed_data(processed_data, "running_activities.csv")
-```
-
-### Command Line Usage
-```bash
-python3 data_preprocessor.py input_activities.csv processed_running_activities.csv --summary
-```
-
-### Extracted Features
-- Activity ID, Date, Type, Gear
-- Distance, Moving Time, Average Speed
-- Grade Adjusted Pace, Elevation Gain
-- Cadence, Heart Rate, Training Load
-- Relative Effort, Perceived Exertion
-- Weather Temperature
-
-### Data Quality
-- Filters to "Run" activities only
-- Handles missing values gracefully
-- Converts to proper data types
-- Provides summary statistics
-
-## Shoe Recommendation Algorithms
-
-This project now includes **two** recommendation approaches: a classic K-means clustering baseline and a state-of-the-art supervised learning model.
-
-### 1. K-means Clustering (Baseline)
-The K-means helper looks up a shoe by human-readable name and returns the shoe's cluster label plus nearest cluster neighbors.
-
-#### Example
 ```python
 from shoe_clustering import recommend_similar_shoes
-
 result = recommend_similar_shoes("Adidas Adistar")
-print(result["cluster_label"])
-print(result["matched_shoe"])
-print(result["nearest_shoes"])
 ```
 
-#### CLI
 ```bash
 python3 shoe_clustering.py "Adidas Adistar"
 ```
 
-#### Features used by K-means
-- Drop
-- Heel stack
-- Forefoot stack
-- Energy return heel
-- Weight
-- Midsole softness (old method)
-- Torsional rigidity
+**Features:** Drop, Heel stack, Forefoot stack, Energy return heel, Weight, Midsole softness, Torsional rigidity, Pace (one-hot encoded). Features with >30% missing values are automatically excluded.
 
-*Features with >30% missing values are automatically excluded*
+**Limitation:** Hard cluster boundaries — a shoe on the edge of Cluster A cannot be recommended shoes just across the border in Cluster B.
 
-### 2. Supervised Learning Model (Production)
-The supervised XGBoost model learns similarity patterns from synthetic training data and significantly outperforms the K-means baseline.
+### 2. Supervised XGBoost (Gemini-Trained)
 
-#### Performance Metrics
-- **MAE**: 5.23 (vs K-means: 30.70) - **83% improvement**
-- **RMSE**: 8.56 (vs K-means: 34.29) - **75% improvement**
-- **Correlation**: 0.939
-- **Within 10 points**: 84.8%
-- **NDCG@5**: 0.985 (excellent ranking quality)
+Trains an XGBoost regressor on pairwise feature differences (Δ drop, Δ weight, etc.) with similarity labels generated by the Gemini LLM. Scores every shoe pair on a 0–100 scale.
 
-#### Training
 ```bash
-# Generate synthetic training data
-python synthetic_dataset_generator.py
-
-# Train supervised model
-python supervised_shoe_matcher.py
-
-# Evaluate model performance
-python evaluate_supervised_model.py
+python synthetic_dataset_generator.py   # ~50K pairs via Gemini API
+python supervised_shoe_matcher.py       # Train XGBoost
+python evaluate_supervised_model.py     # Evaluate
 ```
 
-#### Features
-- Uses comprehensive lab test metrics and specs
-- Handles missing values with median imputation
-- Learns non-linear similarity patterns
-- Optimized for ranking quality (NDCG)
+**Performance vs K-Means baseline:**
 
-### Model Comparison
-| Metric | K-means | Supervised | Improvement |
-|--------|---------|------------|-------------|
+| Metric | K-Means | XGBoost | Improvement |
+|--------|---------|---------|-------------|
 | MAE | 30.70 | 5.23 | **83%** |
 | RMSE | 34.29 | 8.56 | **75%** |
-| Correlation | ~0.4 | 0.939 | **135%** |
+| Correlation | ~0.4 | 0.939 | — |
+| NDCG@5 | — | 0.985 | — |
 
-The supervised model is now the **production algorithm** used for all recommendations.
+### 3. Hybrid ITML + K-Means (Production)
 
-## Shoe Matcher Web App
+The production algorithm combines metric learning with clustering:
 
-This repository now includes a small FastAPI web app for trying the matcher in a browser.
+1. **Feature Engineering** — extract and scale lab-test features (via `ShoeKMeansClusterer`)
+2. **Pairwise Constraints** — convert Gemini similarity scores into Must-Link (≥60) and Cannot-Link (≤15) pairs
+3. **ITML Metric Learning** — learn a Mahalanobis distance that warps the feature space so similar shoes (per Gemini) are closer together
+4. **Recommendation** — compute distances in the ITML-transformed space to ALL shoes, convert to 0–100 similarity via Gaussian kernel
 
-### Run locally
+This approach avoids both the hard-boundary problem of pure K-Means and the O(n²) inference cost of XGBoost (ITML distances are simple vector operations).
+
+```bash
+python hybrid_kmeans_pipeline.py "Nike Pegasus 41"
+```
+
+**Current recommendation statistics (641 shoes):**
+
+| Stat | Value |
+|------|-------|
+| Mean similarity score | 71.19 |
+| Score range | 48.73 – 95.82 |
+| Avg brand diversity | 7.5 brands per shoe |
+| Recs per shoe | 15 |
+
+## Web Application
+
+A FastAPI app serves recommendations through a browser interface.
+
+### Run Locally
+
 ```bash
 source env/bin/activate
 pip install -r requirements.txt
 uvicorn webapp.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000` in your browser.
+Open `http://127.0.0.1:8000`.
 
-### API endpoints
-- `GET /api/shoes` — returns the shoe list for the dropdown. Supports `?terrain=Road`, `?terrain=Trail`, or no terrain filter for Both.
-- `POST /api/recommendations` — takes a shoe selection and returns the matched shoe plus similar recommendations.
+### API Endpoints
 
-### Terrain behavior
-- `Road` and `Trail` filter both the dropdown and the clustering dataset.
-- `Both` means no terrain filter is sent to clustering.
+| Method | Path | Description |
+|--------|------|-------------|
+| `GET` | `/api/shoes` | Shoe list for dropdown. Optional `?terrain=Road` or `?terrain=Trail` |
+| `POST` | `/api/recommendations` | Returns matched shoe + similar recommendations |
+| `GET` | `/api/shoe/{shoe_id}/statistics` | Detailed lab test data for a shoe |
 
-## Vercel Deployment
+### Terrain Filtering
 
-The web app is deployed on Vercel as a serverless function. To keep the Lambda
-under the 500 MB size limit, **all shoe recommendations are pre-computed** into
-a static JSON file. The heavy ML libraries (scikit-learn, xgboost, pandas, etc.)
-are **not** installed at runtime on Vercel.
+- **Road** / **Trail** — filters both the dropdown and recommendation results
+- **Both** (default) — no terrain filter applied
 
-### How it works
-1. `data/shoes.catalog.json` - compact shoe metadata (generated from SQLite).
-2. `data/precomputed_recommendations.json` - top-15 similar shoes per shoe,
-   pre-computed with the **supervised XGBoost model** (~2.5 MB).
-3. The FastAPI app reads both JSON files at startup - no ML inference at runtime.
-4. All recommendations use the production supervised algorithm with 83% MAE improvement.
+## Deployment (Vercel)
 
-### Regenerating pre-computed data
+The app deploys to Vercel as a serverless function. Because Vercel Lambda functions have a **250 MB uncompressed / 500 MB total size limit**, all ML computation happens offline. The deployed app reads only:
 
-After crawling new shoes or retraining the model, regenerate the deployment data:
+- `data/shoes.catalog.json` — compact shoe metadata
+- `data/precomputed_recommendations.json` — top-15 recommendations per shoe (~2.5 MB)
+
+Runtime dependencies are minimal: `fastapi`, `jinja2`, `uvicorn` (see `requirements.txt`).
+
+### Regenerating Recommendations
+
+After crawling new shoes or retraining, regenerate the deployment data:
 
 ```bash
 source env/bin/activate
-pip install -r requirements-full.txt   # full ML deps needed for generation
+pip install -r requirements-full.txt
 
-# 1. Regenerate the shoe catalog from SQLite
+# 1. Regenerate shoe catalog from SQLite
 python generate_catalog.py
 
-# 2. Train/retrain the supervised model (if needed)
-python synthetic_dataset_generator.py  # Generate training data
-python supervised_shoe_matcher.py      # Train model
-python evaluate_supervised_model.py   # Verify performance
+# 2. (Optional) Retrain — only needed if the model or training data changes
+python synthetic_dataset_generator.py   # Generate Gemini similarity labels
+python supervised_shoe_matcher.py       # Train XGBoost model
+python evaluate_supervised_model.py     # Verify performance
 
-# 3. Re-compute recommendations with supervised model (~10 min for 641 shoes)
-python precompute_recommendations.py
+# 3. Re-compute recommendations (default: hybrid ITML backend)
+python precompute_recommendations.py --backend hybrid
 
-# 4. Commit and push to trigger Vercel redeploy
-git add data/shoes.catalog.json data/precomputed_recommendations.json data/supervised_shoe_matcher.pkl
-git commit -m "Update supervised model recommendations"
+# 4. Deploy
+git add data/shoes.catalog.json data/precomputed_recommendations.json
+git commit -m "Regenerate recommendations"
 git push
 ```
 
-### Dependency files
-- `requirements.txt` — slim runtime deps for Vercel (fastapi, jinja2, uvicorn).
-- `requirements-full.txt` — all dependencies including ML libraries for local
-  development, training, and pre-computation.
+The `--backend` flag selects the algorithm:
+- `hybrid` (default) — ITML + K-Means in transformed space
+- `supervised` — XGBoost pairwise regression
 
-## Notes
+### Dependency Files
 
-- URL discovery: Sitemap → Catalog pages → Individual shoe pages
-- Lab Test Results: Extracts shoe-specific column (left of "Average")
-- Re-runs are efficient: Only crawls new/updated shoes
-- Database schema supports flexible metric addition over time
-- Activity preprocessor ready for clustering algorithms
-- Use `--rebuild-db` when you want a fresh crawl with new extracted fields
+| File | Purpose |
+|------|---------|
+| `requirements.txt` | Slim runtime deps for Vercel |
+| `requirements-full.txt` | All ML libraries for local training |
+| `.vercelignore` | Excludes ML scripts, SQLite, CSV, PKL from deploy |
+
+## Project Structure
+
+```
+ShoeMapping/
+├── crawler/                  # RunRepeat web crawler
+├── webapp/
+│   ├── main.py              # FastAPI app + routes
+│   ├── models.py            # Pydantic request/response models
+│   ├── services.py          # ShoeCatalogService, ShoeRecommendationService
+│   ├── templates/           # Jinja2 HTML templates
+│   └── static/              # CSS + JS
+├── data/
+│   ├── runrepeat_lab_tests.sqlite   # Raw crawled data (not deployed)
+│   ├── shoes.catalog.json           # Compact metadata (deployed)
+│   ├── precomputed_recommendations.json  # Recommendations (deployed)
+│   ├── supervised_shoe_matcher.pkl  # Trained model (not deployed)
+│   └── synthetic_similarity_dataset.csv  # Training data (not deployed)
+├── shoe_clustering.py        # K-Means baseline
+├── supervised_shoe_matcher.py # XGBoost pairwise model
+├── hybrid_kmeans_pipeline.py # ITML + K-Means pipeline
+├── hybrid_matching_service.py # Service wrapper for hybrid pipeline
+├── supervised_matching_service.py # Service wrapper for XGBoost
+├── synthetic_dataset_generator.py # Gemini API → training labels
+├── evaluate_supervised_model.py   # Model evaluation metrics
+├── precompute_recommendations.py  # Generate deployment JSON
+├── generate_catalog.py       # SQLite → catalog JSON
+├── main.py                   # Vercel entrypoint
+└── requirements*.txt         # Dependency files
+```
+
+## Future: Personalized Recommendations via Strava Data
+
+A planned extension integrates a runner's own activity data to personalize shoe recommendations. Given Strava data (via API or CSV/GPX upload), the system can build a **runner profile** and match it against shoe characteristics.
+
+### Available Data from Strava
+
+The [Strava API v3](https://developers.strava.com/docs/reference/) provides per-activity:
+
+- **Gear ID** — which shoes were used (`gear_id` field, resolved via `/gear/{id}`)
+- **Cadence** — steps per minute (available as stream data; note: API returns half-cadence for runs)
+- **Pace / Speed** — average and per-lap
+- **Heart Rate** — average and stream
+- **Elevation Gain** — total and stream
+- **Distance** and **Moving Time**
+- **Activity Streams** — second-by-second time series for cadence, heartrate, velocity, altitude, grade
+
+Alternatively, users can upload a Strava CSV export or GPX files containing similar fields.
+
+### How Runner Data Maps to Shoe Properties
+
+Research on running biomechanics (Agresta et al., 2022; PMC8959543) identifies key relationships between runner characteristics and shoe design:
+
+| Runner Signal (from Strava) | Inferred Characteristic | Relevant Shoe Property |
+|-----------------------------|------------------------|----------------------|
+| **Cadence** (steps/min) | Stride pattern — high cadence (~180+) suggests midfoot/forefoot strike | **Drop** (low drop suits forefoot strikers) |
+| **Pace** | Training type — tempo, easy, race | **Weight** (lighter for racing), **Energy return** (higher for performance) |
+| **Elevation gain** | Trail vs road preference | **Terrain**, **Torsional rigidity** |
+| **Heart rate zones** | Effort distribution | **Cushioning** needs (more cushion for easy/long runs) |
+| **Gear rotation** | Multiple-shoe usage pattern | Diversified recommendations across shoe types |
+| **Distance per shoe** | Mileage tracking | Retirement alerts, replacement suggestions |
+
+### Proposed Implementation
+
+1. **Runner Profile Builder** — aggregate Strava activities into a feature vector: avg cadence, pace distribution, terrain split (elevation-based), weekly mileage, shoe rotation habits
+2. **Shoe-Runner Affinity Model** — if a runner logs good performances (low HR, consistent pace) in certain shoes, use those shoes' lab-test profiles as positive anchors in the recommendation space
+3. **Personalized Re-ranking** — take the existing shoe-to-shoe recommendations and re-rank them based on the runner's profile (e.g., boost low-drop shoes for high-cadence runners, boost trail shoes for runners with high elevation gain)
+4. **Shoe Rotation Advisor** — suggest complementary shoes based on the "comfort filter" paradigm: runners benefit from rotating between shoes with different midsole properties to vary tissue loading
