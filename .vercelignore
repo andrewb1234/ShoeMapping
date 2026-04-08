@@ -1,0 +1,36 @@
+# Exclude ML computation scripts from Vercel deployment
+# These are kept in the repo for local development and reproducibility
+# but are not needed for the serverless runtime.
+
+test_kmeans_integration.py
+shoe_clustering.py
+supervised_shoe_matcher.py
+supervised_matching_service.py
+synthetic_dataset_generator.py
+evaluate_supervised_model.py
+elbow_plot.py
+data_preprocessor.py
+example_usage.py
+check_gemini_models.py
+generate_catalog.py
+precompute_recommendations.py
+hybrid_kmeans_pipeline.py
+
+# Data files not needed at runtime (precomputed JSONs are kept)
+data/*.sqlite
+data/*.csv
+data/*.pkl
+
+# Documentation
+ALGO2.md
+KMEANS_INTEGRATION_README.md
+SUPERVISED_MATCHING_README.md
+possible_pipeline.md
+
+# Crawler
+crawler/
+
+# Misc
+*.png
+output.csv
+deleted_non_running_shoes.csv
