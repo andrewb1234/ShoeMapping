@@ -1,0 +1,240 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Personalize My Recommendations</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script>
+      window.personalizeConfig = {
+        publicWebBaseUrl: "{{ public_web_base_url }}",
+        stravaEnabled: {{ "true" if strava_enabled else "false" }},
+      };
+    </script>
+    <script defer src="/static/personalize.js"></script>
+  </head>
+  <body class="site-body">
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="brand-lockup" href="/">
+          <span class="brand-mark">SM</span>
+          <span class="brand-copy">
+            <strong>Shoe Mapping</strong>
+            <span>Personalization runtime</span>
+          </span>
+        </a>
+        <nav class="top-nav">
+          <a href="{{ public_web_base_url }}/">Home</a>
+          <a href="{{ public_web_base_url }}/explore">Explore</a>
+        </nav>
+      </header>
+
+      <main class="page-grid">
+        <section class="control-surface">
+          <div>
+            <p class="eyebrow">Personalized shoe advisor</p>
+            <h1>Build recommendations around your current training and rotation.</h1>
+          </div>
+          <p class="support-copy">
+            Import history, add owned shoes, review the derived runner profile, and compare recommendations by context. The system explains why each option appears and what data is missing.
+          </p>
+          <div id="personalize-banner" class="message-banner info">Starting session…</div>
+          <ol class="stepper">
+            <li class="active">1. Choose source</li>
+            <li>2. Add data or shoes</li>
+            <li>3. Review profile</li>
+            <li>4. Recommendations and rotation</li>
+          </ol>
+        </section>
+
+        <section class="wizard-grid">
+          <article class="panel-card" id="source-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Step 1</p>
+                <h2>Choose how to start</h2>
+              </div>
+            </div>
+            <div class="source-grid">
+              <button class="source-card active" data-source="manual" type="button">
+                <strong>Manual</strong>
+                <span>Add owned shoes and baseline mileage yourself.</span>
+              </button>
+              <button class="source-card" data-source="csv" type="button">
+                <strong>CSV import</strong>
+                <span>Bring in exported activity logs without authorizing an API.</span>
+              </button>
+              <button class="source-card" data-source="gpx" type="button">
+                <strong>GPX upload</strong>
+                <span>Use route files for distance, time, and elevation context.</span>
+              </button>
+              <button class="source-card" data-source="strava" type="button" {% if not strava_enabled %}disabled{% endif %}>
+                <strong>Strava sync</strong>
+                <span>{% if strava_enabled %}Connect your account for ongoing sync.{% else %}Hidden until Strava credentials are configured.{% endif %}</span>
+              </button>
+            </div>
+          </article>
+
+          <article class="panel-card" id="ingest-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Step 2</p>
+                <h2>Add shoes or activity data</h2>
+              </div>
+            </div>
+
+            <div id="manual-panel" class="source-panel active">
+              <form id="manual-shoe-form" class="form-grid">
+                <label class="field field-wide">
+                  <span>Catalog shoe</span>
+                  <select id="manual-catalog-shoe">
+                    <option value="">Choose a catalog shoe</option>
+                  </select>
+                </label>
+                <label class="field">
+                  <span>Custom brand</span>
+                  <input id="manual-brand" type="text" placeholder="Optional if catalog shoe selected" />
+                </label>
+                <label class="field">
+                  <span>Custom name</span>
+                  <input id="manual-name" type="text" placeholder="Optional if catalog shoe selected" />
+                </label>
+                <label class="field">
+                  <span>Starting mileage (km)</span>
+                  <input id="manual-start-mileage" type="number" min="0" step="1" value="0" />
+                </label>
+                <label class="field">
+                  <span>Retirement target (km)</span>
+                  <input id="manual-retirement-target" type="number" min="0" step="10" placeholder="Auto if blank" />
+                </label>
+                <label class="field field-wide">
+                  <span>Notes</span>
+                  <textarea id="manual-notes" rows="3" placeholder="Optional notes about comfort, purpose, or wear"></textarea>
+                </label>
+                <button class="cta-primary" type="submit">Add shoe to rotation</button>
+              </form>
+            </div>
+
+            <div id="upload-panel" class="source-panel">
+              <form id="upload-form" class="form-grid">
+                <label class="field field-wide">
+                  <span>Choose CSV or GPX file</span>
+                  <input id="import-file" type="file" accept=".csv,.gpx" />
+                </label>
+                <p class="support-copy compact">
+                  CSV import uses best-effort column matching. GPX import captures route, distance, timing, and elevation, with heart rate or cadence only when the file includes those extensions.
+                </p>
+                <button class="cta-primary" type="submit">Import file</button>
+              </form>
+            </div>
+
+            <div id="strava-panel" class="source-panel">
+              <div class="info-block">
+                <p class="support-copy">
+                  Strava sync is optional and only requests the minimum read scopes by default. Private activity access remains opt-in.
+                </p>
+                {% if strava_enabled %}
+                <div class="button-row">
+                  <a class="cta-primary" href="/auth/strava/start">Connect Strava</a>
+                  <a class="cta-secondary" href="/auth/strava/start?include_private=true">Connect with private activities</a>
+                </div>
+                {% else %}
+                <p class="message-banner muted">Strava UI is disabled until credentials and redirect URIs are configured.</p>
+                {% endif %}
+              </div>
+            </div>
+          </article>
+
+          <article class="panel-card" id="profile-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Step 3</p>
+                <h2>Review the derived profile</h2>
+              </div>
+            </div>
+            <div id="profile-summary" class="summary-grid"></div>
+            <form id="profile-form" class="form-grid">
+              <label class="field">
+                <span>Preferred terrain</span>
+                <select id="profile-preferred-terrain">
+                  <option value="">Use derived preference</option>
+                  <option value="road">Road</option>
+                  <option value="trail">Trail</option>
+                </select>
+              </label>
+              <label class="field">
+                <span>Weekly mileage override (km)</span>
+                <input id="profile-weekly-override" type="number" min="0" step="1" />
+              </label>
+              <label class="field field-wide">
+                <span>Prioritize these contexts</span>
+                <div class="checkbox-row">
+                  <label><input type="checkbox" value="easy" /> Easy</label>
+                  <label><input type="checkbox" value="long" /> Long</label>
+                  <label><input type="checkbox" value="workout" /> Workout</label>
+                  <label><input type="checkbox" value="trail" /> Trail</label>
+                  <label><input type="checkbox" value="replace" /> Replace next</label>
+                </div>
+              </label>
+              <label class="field field-wide">
+                <span>Profile notes</span>
+                <textarea id="profile-notes" rows="3" placeholder="Add goals or context you want the scoring system to reflect"></textarea>
+              </label>
+              <button class="cta-primary" type="submit">Save profile adjustments</button>
+            </form>
+          </article>
+
+          <article class="panel-card wide-card" id="results-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Step 4</p>
+                <h2>Recommendations and current rotation</h2>
+              </div>
+            </div>
+            <div class="tab-row" id="context-tabs">
+              <button class="tab-button active" data-context="easy" type="button">Easy</button>
+              <button class="tab-button" data-context="long" type="button">Long</button>
+              <button class="tab-button" data-context="workout" type="button">Workout</button>
+              <button class="tab-button" data-context="trail" type="button">Trail</button>
+              <button class="tab-button" data-context="replace" type="button">Replace next</button>
+            </div>
+            <div id="recommendation-meta" class="message-banner muted">Session starting…</div>
+            <div id="recommendation-results" class="card-grid empty-state">
+              <div class="empty-panel">
+                <p>Complete the first steps to generate personalized recommendations.</p>
+              </div>
+            </div>
+
+            <div class="panel-header section-break">
+              <div>
+                <p class="eyebrow">Owned shoes</p>
+                <h2>Rotation status and retirement watch</h2>
+              </div>
+            </div>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Shoe</th>
+                    <th>Role</th>
+                    <th>Mileage</th>
+                    <th>Target</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="rotation-table-body">
+                  <tr>
+                    <td colspan="5">No shoes added yet.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+        </section>
+      </main>
+    </div>
+  </body>
+</html>

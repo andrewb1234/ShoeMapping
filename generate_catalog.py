@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Dict, Any, List
 
+from shoe_catalog_facets import build_shoe_facets
 from webapp.services import safe_json_loads, display_name
 
 def main() -> None:
@@ -47,6 +48,12 @@ def main() -> None:
             # Keep full lab results for statistics endpoint
             "lab_test_results": lab_results,
         })
+
+    enrichment = build_shoe_facets(catalog)
+    for shoe in catalog:
+        extra = enrichment.get(shoe["shoe_id"], {})
+        shoe["facets"] = extra.get("facets", {})
+        shoe["metric_snapshot"] = extra.get("metric_snapshot", {})
     
     # Write catalog
     output_path.parent.mkdir(exist_ok=True)

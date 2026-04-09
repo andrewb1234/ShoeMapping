@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Explore Shoes</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script>
+      window.shoeMappingConfig = {
+        personalizationBaseUrl: "{{ personalization_base_url }}",
+        personalizationEnabled: {{ "true" if personalization_enabled else "false" }},
+      };
+    </script>
+    <script defer src="/static/app.js"></script>
+  </head>
+  <body class="site-body">
+    <div class="site-shell">
+      <header class="site-header">
+        <a class="brand-lockup" href="/">
+          <span class="brand-mark">SM</span>
+          <span class="brand-copy">
+            <strong>Shoe Mapping</strong>
+            <span>Explore the catalog</span>
+          </span>
+        </a>
+        <nav class="top-nav">
+          <a href="/">Home</a>
+          {% if personalization_enabled %}
+          <a class="button-link" href="{{ personalization_base_url }}/">Personalize</a>
+          {% else %}
+          <span class="button-link is-disabled">Personalization API pending</span>
+          {% endif %}
+        </nav>
+      </header>
+
+      <main class="page-grid">
+        <section class="control-surface">
+          <div>
+            <p class="eyebrow">Anonymous explorer</p>
+            <h1>Find adjacent shoes from the shared catalog.</h1>
+          </div>
+          <p class="support-copy">
+            Recommendations stay grounded in the static shoe catalog. The explanations are descriptive, not personalized.
+          </p>
+
+          <div class="filter-row">
+            <div class="segmented-control" id="terrain-filter">
+              <button class="segmented-button active" data-terrain="Both" type="button">Both</button>
+              <button class="segmented-button" data-terrain="Road" type="button">Road</button>
+              <button class="segmented-button" data-terrain="Trail" type="button">Trail</button>
+            </div>
+            <label class="field">
+              <span>Brand</span>
+              <select id="brand-select"></select>
+            </label>
+            <label class="field">
+              <span>Shoe</span>
+              <select id="shoe-select"></select>
+            </label>
+            <button id="run-match" class="cta-primary" type="button">Find matches</button>
+          </div>
+          <p id="status-text" class="status-text">Loading catalog…</p>
+        </section>
+
+        <section class="content-grid">
+          <article class="hero-card" id="selected-shoe-card">
+            <p class="eyebrow">Selected shoe</p>
+            <h2>Select a shoe to see its role and neighboring options.</h2>
+          </article>
+
+          <section class="results-panel">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Matches</p>
+                <h2>Closest shoes in the current catalog</h2>
+              </div>
+              {% if personalization_enabled %}
+              <a class="inline-link" href="{{ personalization_base_url }}/">Want context-aware recommendations?</a>
+              {% else %}
+              <span class="inline-link is-disabled">Personalization API pending</span>
+              {% endif %}
+            </div>
+            <div id="recommendations-grid" class="card-grid empty-state">
+              <div class="empty-panel">
+                <p>Choose a shoe and run the matcher.</p>
+              </div>
+            </div>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <dialog id="shoe-detail-modal" class="detail-dialog">
+      <article class="detail-card">
+        <div class="detail-header">
+          <div>
+            <p class="eyebrow">Lab details</p>
+            <h2 id="detail-title">Shoe details</h2>
+          </div>
+          <button id="close-detail-modal" class="icon-button" type="button">Close</button>
+        </div>
+        <div id="detail-grid" class="detail-grid"></div>
+      </article>
+    </dialog>
+  </body>
+</html>

@@ -31,7 +31,27 @@ possible_pipeline.md
 # Crawler
 crawler/
 
+# Personalization runtime (deployed separately)
+personalization/
+api/
+alembic/
+alembic.ini
+Procfile
+requirements-personalization.txt
+tests/
+webapp/templates/personalize.html
+webapp/static/personalize.js
+
 # Misc
+.env
+.env.*
+.venv/
+env/
+venv/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
 *.png
 output.csv
 deleted_non_running_shoes.csv
+PRODUCT_NEXT.md

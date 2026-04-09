@@ -86,6 +86,8 @@ def precompute(backend_name: str = "hybrid") -> Dict[str, Any]:
                 "audience_verdict": other.get("audience_verdict"),
                 "similarity_score": rec["similarity_score"],
                 "source_url": other["source_url"],
+                "facets": other.get("facets"),
+                "metric_snapshot": other.get("metric_snapshot"),
             })
 
         results[shoe_id] = top_recs

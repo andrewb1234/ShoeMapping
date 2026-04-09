@@ -1,6 +1,11 @@
-# ShoeMapping: Running Shoe Recommendation Engine
+# ShoeMapping: Shoe Explorer + Personalized Shoe Advisor
 
-A complete ML-powered system that recommends similar running shoes based on objective lab-test data. The engine crawls shoe specifications from [RunRepeat](https://runrepeat.com/), learns a distance metric informed by LLM-generated similarity judgments, and serves pre-computed recommendations through a FastAPI web app deployed on Vercel.
+ShoeMapping now has two runtime surfaces built on the same offline shoe-intelligence layer:
+
+- A **public shoe explorer** on Vercel that serves anonymous shoe-to-shoe recommendations from static JSON artifacts.
+- A **personalization API** for runner profiles, CSV/GPX imports, owned-shoe tracking, explainable scoring, and optional Strava sync.
+
+The shared shoe data still comes from [RunRepeat](https://runrepeat.com/) lab-test/spec crawls and offline metric-learning pipelines.
 
 ## Architecture Overview
 
@@ -16,18 +21,18 @@ A complete ML-powered system that recommends similar running shoes based on obje
                     │   similarity)    │
                     └──────────────────┘
                                                         │
-                    ┌──────────────────┐     ┌──────────▼───────────┐
-                    │  shoes.catalog   │────▶│  precomputed_recs    │
-                    │  .json           │     │  .json (~2.5 MB)     │
-                    └──────────────────┘     └──────────┬───────────┘
-                                                        │
-                    ┌──────────────────┐     ┌──────────▼───────────┐
-                    │  Vercel          │◀────│  FastAPI Web App      │
-                    │  (serverless)    │     │  (reads JSON only)    │
+                    ┌──────────────────┐     ┌──────────────────────┐
+                    │  shoes.catalog   │────▶│  public-web          │
+                    │  .json + facets  │     │  (Vercel, stateless) │
+                    └────────┬─────────┘     └──────────────────────┘
+                             │
+                    ┌────────▼─────────┐     ┌──────────────────────┐
+                    │ precomputed_recs │────▶│ personalization-api  │
+                    │ .json            │     │ + worker + Postgres   │
                     └──────────────────┘     └──────────────────────┘
 ```
 
-The website consumes **only** two static JSON files at runtime: `shoes.catalog.json` (shoe metadata) and `precomputed_recommendations.json` (top-15 recommendations per shoe). No ML libraries are installed on Vercel — this keeps the serverless Lambda well under the 500 MB size limit.
+The public runtime still consumes **only** static JSON artifacts: `shoes.catalog.json` (now including derived shoe facets) and `precomputed_recommendations.json`. The personalization runtime layers user-owned shoes, imported activities, runner profiles, and explanation caches on top of the same catalog.
 
 ## Setup
 
@@ -35,14 +40,17 @@ The website consumes **only** two static JSON files at runtime: `shoes.catalog.j
 python3 -m venv env
 source env/bin/activate
 
-# Slim runtime deps (web app only)
+# Public Vercel runtime
 pip install -r requirements.txt
 
-# Full ML/training deps (local development)
+# Personalized API + worker runtime
+pip install -r requirements-personalization.txt
+
+# Full local development stack (ML + personalization + tests)
 pip install -r requirements-full.txt
 ```
 
-A `GOOGLE_GEMINI_API_KEY` in `.env` is required for generating synthetic training data.
+Copy `.env.example` to `.env` and fill in the values you need. A `GOOGLE_GEMINI_API_KEY` is only required for generating synthetic training data.
 
 ## Data Collection
 
@@ -157,11 +165,19 @@ python hybrid_kmeans_pipeline.py "Nike Pegasus 41"
 | Avg brand diversity | 7.5 brands per shoe |
 | Recs per shoe | 15 |
 
-## Web Application
+## Runtime Surfaces
 
-A FastAPI app serves recommendations through a browser interface.
+### Public Web
 
-### Run Locally
+The public FastAPI app serves:
+
+- `/` — home page with Explore vs Personalize entry points
+- `/explore` — anonymous catalog explorer
+- `/api/catalog/shoes`
+- `/api/catalog/recommendations`
+- `/api/catalog/shoes/{shoe_id}`
+
+Run it locally:
 
 ```bash
 source env/bin/activate
@@ -171,27 +187,91 @@ uvicorn webapp.main:app --reload
 
 Open `http://127.0.0.1:8000`.
 
-### API Endpoints
+Open `http://127.0.0.1:8000`.
 
-| Method | Path | Description |
-|--------|------|-------------|
-| `GET` | `/api/shoes` | Shoe list for dropdown. Optional `?terrain=Road` or `?terrain=Trail` |
-| `POST` | `/api/recommendations` | Returns matched shoe + similar recommendations |
-| `GET` | `/api/shoe/{shoe_id}/statistics` | Detailed lab test data for a shoe |
+### Personalization API
 
-### Terrain Filtering
+The personalization FastAPI app serves:
 
-- **Road** / **Trail** — filters both the dropdown and recommendation results
-- **Both** (default) — no terrain filter applied
+- `POST /api/personalization/session/bootstrap`
+- `POST /api/imports`
+- `GET /api/imports/{job_id}`
+- `GET /api/profile`
+- `PATCH /api/profile`
+- `GET /api/rotation`
+- `POST /api/rotation/shoes`
+- `PATCH /api/rotation/shoes/{shoe_id}`
+- `GET /api/recommendations/personalized?context=easy|long|workout|trail|replace`
+- `POST /api/feedback`
+- `GET /auth/strava/start`
+- `GET /auth/strava/callback`
+- `GET /webhooks/strava`
+- `POST /webhooks/strava`
 
-## Deployment (Vercel)
+Run it locally:
 
-The app deploys to Vercel as a serverless function. Because Vercel Lambda functions have a **250 MB uncompressed / 500 MB total size limit**, all ML computation happens offline. The deployed app reads only:
+```bash
+source env/bin/activate
+pip install -r requirements-personalization.txt
+alembic upgrade head
+uvicorn api.personalization_main:app --reload --port 9000
+```
+
+In a second terminal, start the worker if you disable inline jobs:
+
+```bash
+source env/bin/activate
+python -m personalization.worker
+```
+
+### Personalization Product Model
+
+The personalized runtime is intentionally a **runner-context recommender**, not a biomechanics oracle. It uses:
+
+- manual rotation input,
+- CSV or GPX imports,
+- runner-profile aggregation,
+- transparent scoring,
+- explanation-first recommendation cards,
+- soft retirement alerts,
+- optional Strava sync behind env flags.
+
+It does **not** try to infer foot strike from cadence or make injury-risk claims.
+
+## Deployment
+
+### Public Web on Vercel
+
+The public app continues to deploy to Vercel as a serverless function. Because Vercel Lambda functions have a **250 MB uncompressed / 500 MB total size limit**, all ML computation happens offline. The deployed app reads only:
 
 - `data/shoes.catalog.json` — compact shoe metadata
 - `data/precomputed_recommendations.json` — top-15 recommendations per shoe (~2.5 MB)
 
 Runtime dependencies are minimal: `fastapi`, `jinja2`, `uvicorn` (see `requirements.txt`).
+
+The Vercel project also needs `PERSONALIZATION_BASE_URL` if you want the public site to link into the personalization flow. When that env var is not set, the public UI now disables those CTAs instead of sending users to a localhost URL.
+
+### Personalization API + Worker
+
+The personalization runtime is designed for a persistent host with Postgres and two process types:
+
+```bash
+web: uvicorn api.personalization_main:app --host 0.0.0.0 --port ${PORT:-8000}
+worker: python -m personalization.worker
+```
+
+The required runtime secrets are:
+
+- `DATABASE_URL`
+- `SESSION_SECRET`
+- `APP_BASE_URL`
+- `PUBLIC_WEB_BASE_URL`
+- `PERSONALIZATION_BASE_URL`
+- `ENABLE_STRAVA_UI`
+- `STRAVA_CLIENT_ID`
+- `STRAVA_CLIENT_SECRET`
+- `STRAVA_VERIFY_TOKEN`
+- `STRAVA_REDIRECT_URI`
 
 ### Regenerating Recommendations
 
@@ -227,26 +307,37 @@ The `--backend` flag selects the algorithm:
 | File | Purpose |
 |------|---------|
 | `requirements.txt` | Slim runtime deps for Vercel |
+| `requirements-personalization.txt` | Persistent API + worker deps |
 | `requirements-full.txt` | All ML libraries for local training |
 | `.vercelignore` | Excludes ML scripts, SQLite, CSV, PKL from deploy |
+| `vercel.json` | Public runtime rewrite configuration |
+| `alembic.ini` + `alembic/` | DB migrations for personalization runtime |
+| `Procfile` | Persistent web + worker process definitions |
 
 ## Project Structure
 
 ```
 ShoeMapping/
 ├── crawler/                  # RunRepeat web crawler
+├── personalization/          # DB models, imports, profile, scoring, jobs, Strava
+├── api/
+│   └── personalization_main.py  # Persistent API entrypoint
+├── alembic/                  # Personalization DB migrations
 ├── webapp/
-│   ├── main.py              # FastAPI app + routes
-│   ├── models.py            # Pydantic request/response models
-│   ├── services.py          # ShoeCatalogService, ShoeRecommendationService
-│   ├── templates/           # Jinja2 HTML templates
-│   └── static/              # CSS + JS
+│   ├── main.py               # Public Vercel app entrypoint
+│   ├── app_factory.py        # Public vs personalization app builders
+│   ├── routers/              # Catalog + personalization route modules
+│   ├── models.py             # Catalog API schemas
+│   ├── services.py           # Catalog + static recommendation services
+│   ├── templates/            # Home, explore, personalize templates
+│   └── static/               # Shared CSS + browser JS
 ├── data/
 │   ├── runrepeat_lab_tests.sqlite   # Raw crawled data (not deployed)
-│   ├── shoes.catalog.json           # Compact metadata (deployed)
+│   ├── shoes.catalog.json           # Compact metadata + derived facets
 │   ├── precomputed_recommendations.json  # Recommendations (deployed)
 │   ├── supervised_shoe_matcher.pkl  # Trained model (not deployed)
 │   └── synthetic_similarity_dataset.csv  # Training data (not deployed)
+├── shoe_catalog_facets.py    # Facet derivation for shared shoe catalog
 ├── shoe_clustering.py        # K-Means baseline
 ├── supervised_shoe_matcher.py # XGBoost pairwise model
 ├── hybrid_kmeans_pipeline.py # ITML + K-Means pipeline
@@ -257,43 +348,15 @@ ShoeMapping/
 ├── precompute_recommendations.py  # Generate deployment JSON
 ├── generate_catalog.py       # SQLite → catalog JSON
 ├── main.py                   # Vercel entrypoint
+├── Procfile                  # Persistent runtime process types
 └── requirements*.txt         # Dependency files
 ```
 
-## Future: Personalized Recommendations via Strava Data
+## Validation
 
-A planned extension integrates a runner's own activity data to personalize shoe recommendations. Given Strava data (via API or CSV/GPX upload), the system can build a **runner profile** and match it against shoe characteristics.
+The implemented smoke and unit tests live in `tests/`:
 
-### Available Data from Strava
-
-The [Strava API v3](https://developers.strava.com/docs/reference/) provides per-activity:
-
-- **Gear ID** — which shoes were used (`gear_id` field, resolved via `/gear/{id}`)
-- **Cadence** — steps per minute (available as stream data; note: API returns half-cadence for runs)
-- **Pace / Speed** — average and per-lap
-- **Heart Rate** — average and stream
-- **Elevation Gain** — total and stream
-- **Distance** and **Moving Time**
-- **Activity Streams** — second-by-second time series for cadence, heartrate, velocity, altitude, grade
-
-Alternatively, users can upload a Strava CSV export or GPX files containing similar fields.
-
-### How Runner Data Maps to Shoe Properties
-
-Research on running biomechanics (Agresta et al., 2022; PMC8959543) identifies key relationships between runner characteristics and shoe design:
-
-| Runner Signal (from Strava) | Inferred Characteristic | Relevant Shoe Property |
-|-----------------------------|------------------------|----------------------|
-| **Cadence** (steps/min) | Stride pattern — high cadence (~180+) suggests midfoot/forefoot strike | **Drop** (low drop suits forefoot strikers) |
-| **Pace** | Training type — tempo, easy, race | **Weight** (lighter for racing), **Energy return** (higher for performance) |
-| **Elevation gain** | Trail vs road preference | **Terrain**, **Torsional rigidity** |
-| **Heart rate zones** | Effort distribution | **Cushioning** needs (more cushion for easy/long runs) |
-| **Gear rotation** | Multiple-shoe usage pattern | Diversified recommendations across shoe types |
-| **Distance per shoe** | Mileage tracking | Retirement alerts, replacement suggestions |
-
-### Proposed Implementation
-
-1. **Runner Profile Builder** — aggregate Strava activities into a feature vector: avg cadence, pace distribution, terrain split (elevation-based), weekly mileage, shoe rotation habits
-2. **Shoe-Runner Affinity Model** — if a runner logs good performances (low HR, consistent pace) in certain shoes, use those shoes' lab-test profiles as positive anchors in the recommendation space
-3. **Personalized Re-ranking** — take the existing shoe-to-shoe recommendations and re-rank them based on the runner's profile (e.g., boost low-drop shoes for high-cadence runners, boost trail shoes for runners with high elevation gain)
-4. **Shoe Rotation Advisor** — suggest complementary shoes based on the "comfort filter" paradigm: runners benefit from rotating between shoes with different midsole properties to vary tissue loading
+```bash
+source env/bin/activate
+pytest -q tests
+```

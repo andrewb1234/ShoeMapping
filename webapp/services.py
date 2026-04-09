@@ -5,6 +5,8 @@ import logging
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+from shoe_catalog_facets import build_shoe_facets
+
 DEFAULT_RECOMMENDATIONS_PATH = Path("data/precomputed_recommendations.json")
 
 logger = logging.getLogger(__name__)
@@ -74,6 +76,14 @@ class ShoeCatalogService:
                 raise FileNotFoundError(f"Catalog not found: {self.catalog_path}")
             with open(self.catalog_path, "r", encoding="utf-8") as f:
                 self._catalog = json.load(f)
+            if self._catalog and (
+                "facets" not in self._catalog[0] or "metric_snapshot" not in self._catalog[0]
+            ):
+                enrichment = build_shoe_facets(self._catalog)
+                for shoe in self._catalog:
+                    extra = enrichment.get(shoe["shoe_id"], {})
+                    shoe["facets"] = extra.get("facets", {})
+                    shoe["metric_snapshot"] = extra.get("metric_snapshot", {})
         return self._catalog or []
 
     def list_shoes(self, terrain: Optional[str] = None) -> List[Dict[str, Any]]:
@@ -95,6 +105,8 @@ class ShoeCatalogService:
                 "source_url": shoe["source_url"],
                 "crawled_at": shoe["crawled_at"],
                 "audience_verdict": shoe["audience_verdict"],
+                "facets": shoe.get("facets"),
+                "metric_snapshot": shoe.get("metric_snapshot"),
             })
 
         items.sort(key=lambda item: (item["brand"].lower(), item["shoe_name"].lower()))
@@ -115,9 +127,15 @@ class ShoeCatalogService:
                     "source_url": shoe["source_url"],
                     "crawled_at": shoe["crawled_at"],
                     "audience_verdict": shoe["audience_verdict"],
+                    "facets": shoe.get("facets"),
+                    "metric_snapshot": shoe.get("metric_snapshot"),
+                    "lab_test_results": safe_json_loads(shoe.get("lab_test_results")),
                 }
 
         return {}
+
+    def get_all_catalog_entries(self) -> List[Dict[str, Any]]:
+        return list(self._load_catalog())
 
 
 class ShoeRecommendationService:
@@ -190,7 +208,7 @@ class ShoeRecommendationService:
                 continue
             if terrain_filter and normalize_text(rec.get("terrain")) != normalize_text(terrain_filter):
                 continue
-            filtered.append(rec)
+            filtered.append(self._enrich_recommendation(rec))
             if len(filtered) >= n_neighbors:
                 break
 
@@ -205,6 +223,15 @@ class ShoeRecommendationService:
             "recommendations": filtered,
             "algorithm": "supervised_precomputed",
         }
+
+    def similarity_between(self, anchor_shoe_id: str, candidate_shoe_id: str) -> float:
+        if anchor_shoe_id == candidate_shoe_id:
+            return 100.0
+        recs = self._load_recommendations().get(anchor_shoe_id, [])
+        for rec in recs:
+            if rec["shoe_id"] == candidate_shoe_id:
+                return float(rec.get("similarity_score") or 0.0)
+        return 0.0
 
     def recommend_by_shoe_id(
         self,
@@ -237,3 +264,18 @@ class ShoeRecommendationService:
             if target == candidate or target in candidate or candidate in target:
                 return shoe["shoe_id"]
         return None
+
+    def _enrich_recommendation(self, recommendation: Dict[str, Any]) -> Dict[str, Any]:
+        rec = dict(recommendation)
+        other = self.catalog_service.get_shoe_by_id(rec["shoe_id"])
+        if not other:
+            return rec
+        rec.setdefault("brand", other["brand"])
+        rec.setdefault("shoe_name", other["shoe_name"])
+        rec.setdefault("display_name", other["display_name"])
+        rec.setdefault("terrain", other.get("terrain"))
+        rec.setdefault("audience_verdict", other.get("audience_verdict"))
+        rec.setdefault("source_url", other.get("source_url"))
+        rec.setdefault("facets", other.get("facets"))
+        rec.setdefault("metric_snapshot", other.get("metric_snapshot"))
+        return rec

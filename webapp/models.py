@@ -7,6 +7,29 @@ from pydantic import BaseModel, Field, model_validator
 TerrainSelection = Literal["Road", "Trail", "Both"]
 
 
+class MetricSnapshot(BaseModel):
+    weight_g: Optional[float] = None
+    drop_mm: Optional[float] = None
+    heel_stack_mm: Optional[float] = None
+    forefoot_stack_mm: Optional[float] = None
+    energy_return_pct: Optional[float] = None
+    outsole_durability_mm: Optional[float] = None
+    heel_counter_stiffness: Optional[float] = None
+    torsional_rigidity: Optional[float] = None
+    softness_ha: Optional[float] = None
+    forefoot_traction: Optional[float] = None
+    lug_depth_mm: Optional[float] = None
+
+
+class ShoeFacets(BaseModel):
+    cushion_level: str
+    stability_level: str
+    weight_class: str
+    ride_role: str
+    durability_proxy: str
+    drop_band: str
+
+
 class ShoeListItem(BaseModel):
     shoe_id: str
     brand: str
@@ -16,6 +39,12 @@ class ShoeListItem(BaseModel):
     source_url: str
     crawled_at: str
     audience_verdict: Optional[int] = None
+    facets: Optional[ShoeFacets] = None
+    metric_snapshot: Optional[MetricSnapshot] = None
+
+
+class ShoeDetailResponse(ShoeListItem):
+    lab_test_results: Dict[str, Any] = Field(default_factory=dict)
 
 
 class ShoeListResponse(BaseModel):
