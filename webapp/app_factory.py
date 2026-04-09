@@ -38,7 +38,7 @@ def create_public_app() -> FastAPI:
 
 def create_personalization_app() -> FastAPI:
     from personalization.db import ensure_database
-    from webapp.routers import catalog, feedback, imports, personalization, rotation, strava
+    from webapp.routers import catalog, feedback, imports, personalization, rotation, strava, visualizations
 
     @asynccontextmanager
     async def lifespan(_: FastAPI):
@@ -55,5 +55,6 @@ def create_personalization_app() -> FastAPI:
     app.include_router(rotation.router)
     app.include_router(feedback.router)
     app.include_router(strava.router)
+    app.include_router(visualizations.router)
 
     return app

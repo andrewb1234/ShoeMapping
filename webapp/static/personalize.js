@@ -6,6 +6,7 @@ const personalizeState = {
   rotationSummary: null,
   recommendations: {},
   catalogShoes: [],
+  visualizations: null,
 };
 
 const banner = document.getElementById("personalize-banner");
@@ -22,6 +23,19 @@ const recommendationMeta = document.getElementById("recommendation-meta");
 const recommendationResults = document.getElementById("recommendation-results");
 const contextTabs = Array.from(document.querySelectorAll(".tab-button"));
 const catalogSelect = document.getElementById("manual-catalog-shoe");
+
+// Visualization elements
+const vizEmptyState = document.getElementById("viz-empty-state");
+const vizEfficiency = document.getElementById("viz-efficiency");
+const vizMonthly = document.getElementById("viz-monthly");
+const vizMileage = document.getElementById("viz-mileage");
+const vizPace = document.getElementById("viz-pace");
+const vizCalendar = document.getElementById("viz-calendar");
+const vizEfficiencyContent = document.getElementById("viz-efficiency-content");
+const vizMonthlyContent = document.getElementById("viz-monthly-content");
+const vizMileageContent = document.getElementById("viz-mileage-content");
+const vizPaceContent = document.getElementById("viz-pace-content");
+const vizCalendarContent = document.getElementById("viz-calendar-content");
 
 function setBanner(message, level = "info") {
   banner.textContent = message;
@@ -547,11 +561,250 @@ mapShoeForm.addEventListener("submit", async (event) => {
   }
 });
 
+// Visualization functions
+async function loadVisualizations() {
+  try {
+    const payload = await apiFetch("/api/visualizations");
+    personalizeState.visualizations = payload;
+    renderVisualizations();
+  } catch (error) {
+    // Silently fail - visualizations are optional
+    console.log("Visualizations not available:", error.message);
+  }
+}
+
+function renderVisualizations() {
+  const viz = personalizeState.visualizations;
+  if (!viz) {
+    return;
+  }
+
+  const hasData = viz.efficiency_heatmap?.length > 0 || 
+                  viz.monthly_mileage?.length > 0 || 
+                  viz.shoe_mileage?.length > 0;
+
+  if (!hasData) {
+    vizEmptyState.style.display = "block";
+    vizEfficiency.style.display = "none";
+    vizMonthly.style.display = "none";
+    vizMileage.style.display = "none";
+    vizPace.style.display = "none";
+    vizCalendar.style.display = "none";
+    return;
+  }
+
+  vizEmptyState.style.display = "none";
+
+  // Render efficiency heatmap
+  if (viz.efficiency_heatmap?.length > 0) {
+    vizEfficiency.style.display = "block";
+    renderEfficiencyHeatmap(viz.efficiency_heatmap);
+  } else {
+    vizEfficiency.style.display = "none";
+  }
+
+  // Render monthly mileage
+  if (viz.monthly_mileage?.length > 0) {
+    vizMonthly.style.display = "block";
+    renderMonthlyMileage(viz.monthly_mileage);
+  } else {
+    vizMonthly.style.display = "none";
+  }
+
+  // Render shoe mileage tracker
+  if (viz.shoe_mileage?.length > 0) {
+    vizMileage.style.display = "block";
+    renderShoeMileage(viz.shoe_mileage);
+  } else {
+    vizMileage.style.display = "none";
+  }
+
+  // Render pace distribution
+  if (viz.pace_distribution?.length > 0) {
+    vizPace.style.display = "block";
+    renderPaceDistribution(viz.pace_distribution);
+  } else {
+    vizPace.style.display = "none";
+  }
+
+  // Render rotation calendar
+  if (viz.rotation_calendar?.length > 0) {
+    vizCalendar.style.display = "block";
+    renderRotationCalendar(viz.rotation_calendar);
+  } else {
+    vizCalendar.style.display = "none";
+  }
+}
+
+function renderEfficiencyHeatmap(data) {
+  const maxEfficiency = Math.max(...data.map(d => d.avg_efficiency), 6);
+  
+  vizEfficiencyContent.innerHTML = `
+    <div class="efficiency-bar-container">
+      ${data.map(shoe => {
+        const pct = Math.min((shoe.avg_efficiency / maxEfficiency) * 100, 100);
+        return `
+          <div class="efficiency-row">
+            <div class="efficiency-label">
+              ${shoe.display_name}
+              <div class="efficiency-meta">${shoe.run_count} runs · ${shoe.total_distance_km.toFixed(0)} km</div>
+            </div>
+            <div class="efficiency-bar-wrap">
+              <div class="efficiency-bar ${shoe.efficiency_tier}" style="width: ${pct}%"></div>
+            </div>
+            <div class="efficiency-value">${shoe.avg_efficiency.toFixed(2)}</div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderMonthlyMileage(data) {
+  // Flatten into rows: month -> shoe entries
+  const rows = [];
+  data.forEach(month => {
+    rows.push({ type: "month", label: month.month_label, total: month.total_distance_km });
+    month.shoes.forEach(shoe => {
+      rows.push({ 
+        type: "shoe", 
+        label: shoe.gear_ref, 
+        distance: shoe.distance_km, 
+        pace: shoe.avg_pace_min_km,
+        hr: shoe.avg_hr,
+        runs: shoe.run_count 
+      });
+    });
+  });
+
+  vizMonthlyContent.innerHTML = `
+    <table class="monthly-table">
+      <thead>
+        <tr>
+          <th>Period</th>
+          <th>Distance</th>
+          <th>Avg Pace</th>
+          <th>Avg HR</th>
+          <th>Runs</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(row => {
+          if (row.type === "month") {
+            return `
+              <tr style="border-top: 2px solid var(--grid-line);">
+                <td><strong>${row.label}</strong></td>
+                <td><strong>${row.total.toFixed(1)} km</strong></td>
+                <td colspan="3"></td>
+              </tr>
+            `;
+          } else {
+            return `
+              <tr>
+                <td class="monthly-shoe-cell">${row.label}</td>
+                <td>${row.distance.toFixed(1)} km</td>
+                <td>${row.pace ? row.pace.toFixed(2) + "/km" : "-"}</td>
+                <td>${row.hr ? row.hr.toFixed(0) + " bpm" : "-"}</td>
+                <td>${row.runs}</td>
+              </tr>
+            `;
+          }
+        }).join("")}
+      </tbody>
+    </table>
+  `;
+}
+
+function renderShoeMileage(data) {
+  vizMileageContent.innerHTML = `
+    <div class="mileage-tracker">
+      ${data.map(shoe => {
+        const pct = shoe.retirement_pct || 0;
+        const barWidth = Math.min(pct, 100);
+        return `
+          <div class="mileage-row zone-${shoe.zone}">
+            <div class="mileage-shoe-name">
+              ${shoe.display_name}
+              ${shoe.mapping_status === "unmapped" ? '<span style="color: var(--text-muted); font-size: 0.7rem;"> (unmapped)</span>' : ""}
+            </div>
+            <div class="mileage-bar-wrap">
+              <div class="mileage-bar zone-${shoe.zone}" style="width: ${barWidth}%"></div>
+            </div>
+            <div class="mileage-stats">
+              <span class="mileage-pct">${pct.toFixed(0)}%</span>
+              <span class="mileage-km">${shoe.current_mileage_km.toFixed(0)} / ${shoe.retirement_target_km ? shoe.retirement_target_km.toFixed(0) + " km" : "no target"}</span>
+            </div>
+          </div>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
+function renderPaceDistribution(data) {
+  vizPaceContent.innerHTML = `
+    <div class="pace-distribution">
+      ${data.map(shoe => `
+        <div class="pace-shoe-block">
+          <div class="pace-shoe-name">${shoe.gear_ref}</div>
+          ${shoe.contexts.map(ctx => {
+            // Create a simple box plot visualization
+            const min = ctx.min;
+            const max = ctx.max;
+            const q1 = ctx.q1;
+            const q3 = ctx.q3;
+            const median = ctx.median;
+            const range = max - min || 1;
+            
+            const left = ((q1 - min) / range) * 100;
+            const width = ((q3 - q1) / range) * 100;
+            const medianPos = ((median - min) / range) * 100;
+            
+            return `
+              <div class="pace-context-row">
+                <div class="pace-context-label">${ctx.run_context}</div>
+                <div class="pace-boxplot">
+                  <div class="pace-box" style="left: ${left}%; width: ${width}%"></div>
+                  <div class="pace-median" style="left: ${medianPos}%"></div>
+                </div>
+                <div class="pace-range">${min.toFixed(1)}-${max.toFixed(1)} /km</div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
+function renderRotationCalendar(data) {
+  vizCalendarContent.innerHTML = `
+    <div class="calendar-grid">
+      ${data.map(week => `
+        <div class="calendar-week">
+          <div class="calendar-week-label">${week.week}</div>
+          <div class="calendar-shoes">
+            ${week.shoes.map(shoe => {
+              const daysClass = shoe.days_used >= 4 ? "days-4" : `days-${shoe.days_used}`;
+              return `
+                <span class="calendar-shoe-badge ${daysClass}" title="${shoe.days_used} days, ${shoe.total_distance_km.toFixed(1)} km">
+                  ${shoe.gear_ref}
+                </span>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `).join("")}
+    </div>
+  `;
+}
+
 window.addEventListener("DOMContentLoaded", async () => {
   try {
     await bootstrapSession();
     await loadCatalogShoes();
     await refreshWorkspace();
+    await loadVisualizations();
   } catch (error) {
     setBanner(error.message, "error");
   }

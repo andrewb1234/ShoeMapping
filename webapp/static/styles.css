@@ -1107,3 +1107,470 @@ a {
   background: var(--line-soft);
   color: var(--ink);
 }
+
+/* ============================================
+   RUNNING DATA VISUALIZATIONS
+   Following Tactical Topo UI Style Guide
+   ============================================ */
+
+.viz-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  border-top: 2px solid var(--grid-line);
+  border-left: 2px solid var(--grid-line);
+}
+
+.viz-card {
+  background: var(--bg-canvas);
+  border-right: 2px solid var(--grid-line);
+  border-bottom: 2px solid var(--grid-line);
+  padding: 24px;
+}
+
+.viz-card.wide {
+  grid-column: 1 / -1;
+}
+
+.viz-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--grid-line);
+}
+
+.viz-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.viz-subtitle {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.viz-content {
+  min-height: 120px;
+}
+
+.viz-legend {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 1px solid var(--grid-line-dim);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 4px 8px;
+  border: 2px solid var(--grid-line);
+}
+
+.legend-item.excellent {
+  background: #1f6f4a;
+  color: var(--bg-canvas);
+  border-color: #1f6f4a;
+}
+
+.legend-item.good {
+  background: #4a9d6f;
+  color: var(--bg-canvas);
+  border-color: #4a9d6f;
+}
+
+.legend-item.fair {
+  background: #b06418;
+  color: var(--bg-canvas);
+  border-color: #b06418;
+}
+
+.legend-item.needs-attention {
+  background: #a63232;
+  color: var(--bg-canvas);
+  border-color: #a63232;
+}
+
+.legend-item.healthy {
+  background: #1f6f4a;
+  color: var(--bg-canvas);
+  border-color: #1f6f4a;
+}
+
+.legend-item.warning {
+  background: #b06418;
+  color: var(--bg-canvas);
+  border-color: #b06418;
+}
+
+.legend-item.critical {
+  background: #a63232;
+  color: var(--bg-canvas);
+  border-color: #a63232;
+}
+
+.legend-item.replace-now {
+  background: #000000;
+  color: var(--bg-canvas);
+  border-color: #000000;
+}
+
+/* Efficiency Heatmap Bars */
+.efficiency-bar-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.efficiency-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid-line-dim);
+}
+
+.efficiency-row:last-child {
+  border-bottom: none;
+}
+
+.efficiency-label {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.efficiency-bar-wrap {
+  position: relative;
+  height: 24px;
+  background: var(--bg-canvas-warm);
+  border: 2px solid var(--grid-line);
+}
+
+.efficiency-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.efficiency-bar.excellent {
+  background: #1f6f4a;
+}
+
+.efficiency-bar.good {
+  background: #4a9d6f;
+}
+
+.efficiency-bar.fair {
+  background: #b06418;
+}
+
+.efficiency-bar.needs-attention {
+  background: #a63232;
+}
+
+.efficiency-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  min-width: 60px;
+  text-align: right;
+}
+
+.efficiency-meta {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* Monthly Mileage Table */
+.monthly-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+}
+
+.monthly-table th,
+.monthly-table td {
+  padding: 10px 8px;
+  text-align: left;
+  border-bottom: 1px solid var(--grid-line-dim);
+}
+
+.monthly-table th {
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--grid-line);
+}
+
+.monthly-shoe-cell {
+  padding-left: 16px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+/* Shoe Mileage Tracker */
+.mileage-tracker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mileage-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 2px solid var(--grid-line);
+  background: var(--bg-canvas);
+}
+
+.mileage-row.zone-healthy {
+  border-color: #1f6f4a;
+}
+
+.mileage-row.zone-warning {
+  border-color: #b06418;
+}
+
+.mileage-row.zone-critical {
+  border-color: #a63232;
+}
+
+.mileage-row.zone-replace-now {
+  border-color: #000000;
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.mileage-shoe-name {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.mileage-bar-wrap {
+  position: relative;
+  height: 20px;
+  background: var(--bg-canvas-warm);
+  border: 1px solid var(--grid-line-dim);
+}
+
+.mileage-bar {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+
+.mileage-bar.zone-healthy {
+  background: #1f6f4a;
+}
+
+.mileage-bar.zone-warning {
+  background: #b06418;
+}
+
+.mileage-bar.zone-critical {
+  background: #a63232;
+}
+
+.mileage-bar.zone-replace-now {
+  background: #000000;
+}
+
+.mileage-stats {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-align: right;
+}
+
+.mileage-pct {
+  font-weight: 700;
+  display: block;
+}
+
+.mileage-km {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+}
+
+/* Pace Distribution */
+.pace-distribution {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.pace-shoe-block {
+  border: 2px solid var(--grid-line);
+  padding: 16px;
+}
+
+.pace-shoe-name {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--grid-line-dim);
+}
+
+.pace-context-row {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid-line-dim);
+}
+
+.pace-context-row:last-child {
+  border-bottom: none;
+}
+
+.pace-context-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.pace-boxplot {
+  position: relative;
+  height: 24px;
+  background: var(--bg-canvas-warm);
+  border: 1px solid var(--grid-line-dim);
+}
+
+.pace-box {
+  position: absolute;
+  height: 100%;
+  background: var(--accent-tactical);
+  opacity: 0.7;
+}
+
+.pace-median {
+  position: absolute;
+  height: 100%;
+  width: 2px;
+  background: var(--grid-line);
+}
+
+.pace-range {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  min-width: 80px;
+  text-align: right;
+}
+
+/* Rotation Calendar */
+.calendar-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.calendar-week {
+  display: grid;
+  grid-template-columns: 70px 1fr;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--grid-line-dim);
+}
+
+.calendar-week:last-child {
+  border-bottom: none;
+}
+
+.calendar-week-label {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.calendar-shoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.calendar-shoe-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border: 2px solid var(--grid-line);
+  background: var(--bg-canvas);
+}
+
+.calendar-shoe-badge.active {
+  background: var(--accent-tactical);
+  color: var(--bg-canvas);
+  border-color: var(--accent-tactical);
+}
+
+.calendar-shoe-badge.days-1 { opacity: 0.4; }
+.calendar-shoe-badge.days-2 { opacity: 0.6; }
+.calendar-shoe-badge.days-3 { opacity: 0.8; }
+.calendar-shoe-badge.days-4,
+.calendar-shoe-badge.days-5,
+.calendar-shoe-badge.days-6,
+.calendar-shoe-badge.days-7 { opacity: 1; }
+
+/* Responsive adjustments */
+@media (max-width: 1120px) {
+  .viz-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .efficiency-row,
+  .mileage-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+  
+  .efficiency-value,
+  .mileage-stats {
+    text-align: left;
+  }
+  
+  .pace-context-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}
+
+/* Small mapping button */
+.map-shoe-btn {
+  margin-left: 4px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink-soft);
+}

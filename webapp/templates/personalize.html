@@ -235,6 +235,79 @@
               </table>
             </div>
           </article>
+
+          <article class="panel-card wide-card" id="visualizations-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Your training data</p>
+                <h2>Running insights from imported activities</h2>
+              </div>
+            </div>
+            <p class="support-copy compact">Visualizations derived from your CSV imports. These help you spot patterns like efficiency by shoe, mileage trends, and rotation habits.</p>
+            
+            <div id="viz-container" class="viz-grid">
+              <div class="empty-panel" id="viz-empty-state">
+                <p>Import activity data to see visualizations.</p>
+              </div>
+              
+              <!-- Shoe Efficiency Heatmap -->
+              <div class="viz-card" id="viz-efficiency" style="display: none;">
+                <div class="viz-header">
+                  <h3>Shoe Efficiency</h3>
+                  <span class="viz-subtitle">HR-adjusted pace (lower is better)</span>
+                </div>
+                <div class="viz-content" id="viz-efficiency-content"></div>
+                <div class="viz-legend">
+                  <span class="legend-item excellent">Excellent</span>
+                  <span class="legend-item good">Good</span>
+                  <span class="legend-item fair">Fair</span>
+                  <span class="legend-item needs-attention">Needs attention</span>
+                </div>
+              </div>
+
+              <!-- Monthly Mileage Trend -->
+              <div class="viz-card" id="viz-monthly" style="display: none;">
+                <div class="viz-header">
+                  <h3>Monthly Mileage</h3>
+                  <span class="viz-subtitle">Distance and pace trends by month</span>
+                </div>
+                <div class="viz-content" id="viz-monthly-content"></div>
+              </div>
+
+              <!-- Shoe Mileage Tracker -->
+              <div class="viz-card" id="viz-mileage" style="display: none;">
+                <div class="viz-header">
+                  <h3>Shoe Mileage Tracker</h3>
+                  <span class="viz-subtitle">Cumulative distance with retirement zones</span>
+                </div>
+                <div class="viz-content" id="viz-mileage-content"></div>
+                <div class="viz-legend">
+                  <span class="legend-item healthy">Healthy</span>
+                  <span class="legend-item warning">Warning (70%+)</span>
+                  <span class="legend-item critical">Critical (85%+)</span>
+                  <span class="legend-item replace-now">Replace now (100%+)</span>
+                </div>
+              </div>
+
+              <!-- Pace Distribution -->
+              <div class="viz-card" id="viz-pace" style="display: none;">
+                <div class="viz-header">
+                  <h3>Pace Distribution</h3>
+                  <span class="viz-subtitle">Pace ranges by run type and shoe</span>
+                </div>
+                <div class="viz-content" id="viz-pace-content"></div>
+              </div>
+
+              <!-- Rotation Calendar -->
+              <div class="viz-card" id="viz-calendar" style="display: none;">
+                <div class="viz-header">
+                  <h3>Rotation Calendar</h3>
+                  <span class="viz-subtitle">Weekly shoe usage heatmap</span>
+                </div>
+                <div class="viz-content" id="viz-calendar-content"></div>
+              </div>
+            </div>
+          </article>
         </section>
       </main>
     </div>
