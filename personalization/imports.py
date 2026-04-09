@@ -25,7 +25,7 @@ CSV_ALIASES = {
     "elevation_gain": ["elevation gain", "elev gain", "climb", "total ascent"],
     "avg_hr": ["avg hr", "average heart rate", "heart rate", "avg heartrate"],
     "avg_cadence": ["avg cadence", "cadence", "average cadence"],
-    "gear_ref": ["gear", "shoe", "shoes", "equipment"],
+    "gear_ref": ["gear", "activity gear", "shoe", "shoes", "equipment"],
     "sport_type": ["type", "sport type", "activity type"],
     "terrain_guess": ["terrain", "surface"],
     "surface_guess": ["surface", "terrain"],

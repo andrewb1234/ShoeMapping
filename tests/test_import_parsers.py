@@ -39,3 +39,13 @@ def test_summarize_detected_shoes_uses_conservative_catalog_matching() -> None:
     assert summary["detected_shoe_count"] == 2
     assert summary["mapped_shoe_count"] == 1
     assert summary["unmapped_shoe_count"] == 1
+
+def test_parse_csv_bytes_maps_strava_activity_gear_column() -> None:
+    csv_payload = b"""Activity ID,Activity Date,Activity Name,Activity Type,Elapsed Time,Distance,Max Heart Rate,Relative Effort,Commute,Activity Private Note,Activity Gear,Filename\n14338073691,"Apr 26, 2025, 12:02:42 AM",Hike in Michinoku,Run,"",17204,21.72,,,false,"",Brooks Cascadia17 Trail,activities/15299399917.gpx.gz\n"""
+
+    activities, summary, warnings = parse_csv_bytes("activities.csv", csv_payload)
+
+    assert len(activities) == 1
+    assert summary["parsed_rows"] == 1
+    assert activities[0]["gear_ref"] == "Brooks Cascadia17 Trail"
+    assert warnings == []
