@@ -17,7 +17,7 @@ from personalization.utils import checksum_for_payload, normalize_text, parse_da
 
 CSV_ALIASES = {
     "external_id": ["activity id", "id", "run id"],
-    "started_at": ["start date", "start time", "started at", "date", "datetime"],
+    "started_at": ["activity date", "start date", "start time", "started at", "date", "datetime"],
     "distance": ["distance", "distance km", "distance mi", "km", "miles"],
     "moving_time": ["moving time", "duration", "elapsed time", "time"],
     "elevation_gain": ["elevation gain", "elev gain", "climb", "total ascent"],

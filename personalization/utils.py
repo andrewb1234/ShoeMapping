@@ -64,6 +64,8 @@ def parse_datetime(value: Any) -> datetime | None:
         "%Y-%m-%d %H:%M",
         "%m/%d/%Y %H:%M:%S",
         "%m/%d/%Y %H:%M",
+        "%b %d, %Y, %I:%M:%S %p",
+        "%b %d, %Y, %I:%M %p",
         "%Y-%m-%d",
         "%m/%d/%Y",
     ):
