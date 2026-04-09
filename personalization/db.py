@@ -63,4 +63,4 @@ def ensure_database() -> None:
 def check_database_ready() -> dict:
     with ENGINE.connect() as connection:
         connection.execute(text("SELECT 1"))
-    return {"status": "ready", "database_url": DATABASE_URL}
+    return {"status": "ready"}
