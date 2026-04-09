@@ -8,7 +8,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700;800;900&family=Roboto+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="/static/styles.css" />
-    <link rel="stylesheet" href="/static/styles-matcher.css" />
     <script defer src="/static/app.js"></script>
   </head>
   <body>
@@ -16,14 +15,13 @@
       <div class="canvas-container">
         <div class="grid-overlay"></div>
         
-        <!-- Sidebar -->
-        <aside class="sidebar">
-          <!-- Header -->
-          <header class="sidebar-header">
-            <div class="brand-section">
-              <div class="brand-mark">SM</div>
-              <h1 class="brand-title">SHOE MATCHER</h1>
-            </div>
+        <!-- Header -->
+        <header class="header-section">
+          <div class="brand-section">
+            <div class="brand-mark">SM</div>
+            <h1 class="brand-title">SHOE MATCHER</h1>
+          </div>
+          <div class="header-actions">
             <button id="how-it-works-btn" class="how-it-works-btn" aria-label="How it works">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -31,94 +29,88 @@
                 <line x1="12" y1="17" x2="12.01" y2="17"></line>
               </svg>
             </button>
-          </header>
+          </div>
+        </header>
 
-          <!-- Control Panel -->
-          <section class="control-panel">
-            <div class="status-indicator" id="status-pill">LOADING SHOES…</div>
-            
-            <!-- Terrain Controls -->
+        <!-- Control Panel -->
+        <section class="control-panel">
+          <div class="status-indicator" id="status-pill">LOADING SHOES…</div>
+          <div class="control-grid">
             <div class="terrain-controls">
-              <label class="control-label">TERRAIN TYPE</label>
-              <div class="terrain-buttons">
-                <button class="terrain-btn active" data-terrain="Both">
-                  <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 12h18m-9-9v18"></path>
-                  </svg>
-                  BOTH
-                </button>
-                <button class="terrain-btn" data-terrain="Road">
-                  <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <line x1="4" y1="12" x2="20" y2="12"></line>
-                  </svg>
-                  ROAD
-                </button>
-                <button class="terrain-btn" data-terrain="Trail">
-                  <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M13 7h8l-1 9H4l-1-9h8"></path>
-                    <path d="M8 12v-2l2-2 2 2v2"></path>
-                  </svg>
-                  TRAIL
-                </button>
-              </div>
+              <button class="terrain-btn active" data-terrain="Both">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M3 12h18m-9-9v18"></path>
+                </svg>
+                BOTH
+              </button>
+              <button class="terrain-btn" data-terrain="Road">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="4" y1="12" x2="20" y2="12"></line>
+                </svg>
+                ROAD
+              </button>
+              <button class="terrain-btn" data-terrain="Trail">
+                <svg class="terrain-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M13 7h8l-1 9H4l-1-9h8"></path>
+                  <path d="M8 12v-2l2-2 2 2v2"></path>
+                </svg>
+                TRAIL
+              </button>
             </div>
             
-            <!-- Search Form -->
-            <div class="search-form">
-              <div class="control-group">
-                <label class="control-label">BRAND</label>
-                <select id="brand-select" class="control-select" disabled>
-                  <option>Loading brands…</option>
-                </select>
-              </div>
-              
-              <div class="control-group">
-                <label class="control-label">MODEL</label>
-                <select id="shoe-select" class="control-select" disabled>
-                  <option>Select a brand first</option>
-                </select>
-              </div>
-              
-              <button id="match-button" class="search-button" disabled> FIND MATCHES </button>
+            <div class="control-group">
+              <label class="control-label">Brand</label>
+              <select id="brand-select" class="control-select" disabled>
+                <option>Loading brands…</option>
+              </select>
             </div>
-          </section>
-        </aside>
+            
+            <div class="control-group">
+              <label class="control-label">Shoe Model</label>
+              <select id="shoe-select" class="control-select" disabled>
+                <option>Select a brand first</option>
+              </select>
+            </div>
+            
+            <button id="match-button" class="search-button" disabled>Find Matches</button>
+          </div>
+        </section>
 
-        <!-- Main Content -->
-        <main class="main-content">
-          <!-- Selected Shoe Panel -->
-          <article class="selected-shoe-panel">
-            <div class="selected-shoe-header">
-              <div class="selected-shoe-info">
-                <h2 id="matched-title" class="selected-shoe-title">SELECT SHOE</h2>
-                <p id="matched-subtitle" class="selected-shoe-subtitle">Choose a model to begin analysis</p>
-              </div>
-              <div class="selected-shoe-visualization">
+        <!-- Results Section -->
+        <main class="results-section">
+          <!-- Anchor Profile -->
+          <article class="anchor-profile">
+            <div class="anchor-header">
+              <div class="anchor-visualization">
                 <div class="radar-chart" id="anchor-radar">
                   <svg viewBox="0 0 200 200">
                     <!-- Radar chart will be drawn here -->
                   </svg>
                 </div>
               </div>
-            </div>
-            <div class="selected-shoe-metrics">
-              <div class="metric-card">
-                <div class="metric-value" id="matches-found">—</div>
-                <div class="metric-label">MATCHES FOUND</div>
-              </div>
-              <div class="metric-card" id="audience-metric" style="display: none;">
-                <div class="metric-value" id="audience-score">—</div>
-                <div class="metric-label">AUDIENCE SCORE</div>
+              <div class="anchor-info">
+                <h2 id="matched-title" class="anchor-title">SELECT SHOE</h2>
+                <p id="matched-subtitle" class="anchor-subtitle">Choose a model to begin analysis</p>
+                <div class="anchor-metrics">
+                  <div class="metric-readout">
+                    <div class="metric-value" id="matches-found">—</div>
+                    <div class="metric-label">Matches Found</div>
+                  </div>
+                  <div class="metric-readout" id="audience-metric" style="display: none;">
+                    <div class="metric-value" id="audience-score">—</div>
+                    <div class="metric-label">Audience Score</div>
+                  </div>
+                </div>
               </div>
             </div>
           </article>
 
-          <!-- Results Section -->
-          <section class="results-section">
-            <div class="results-header">
-              <h3 class="results-title">ANALYSIS RESULTS</h3>
+          <!-- Recommendations -->
+          <section class="recommendations-section">
+            <div class="recommendations-header">
+              <h3 class="recommendations-title">ANALYSIS RESULTS</h3>
             </div>
-            <div id="recommendations" class="results-grid empty-state">
+            <div id="recommendations" class="recommendations-grid empty-state">
               <div class="empty-state">
                 <p>SELECT A SHOE MODEL TO VIEW MATCH ANALYSIS</p>
               </div>

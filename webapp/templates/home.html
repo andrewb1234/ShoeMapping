@@ -31,17 +31,17 @@
 
       <main class="hero-layout">
         <section class="hero-panel">
-          <p class="eyebrow">RUNNING SHOE INTELLIGENCE</p>
+          <p class="eyebrow">Running shoe intelligence</p>
           <h1>Choose between a fast anonymous explorer and a personal rotation advisor.</h1>
           <p class="hero-copy">
             The public explorer stays anchored to lab-tested shoe data. The personalization flow layers your training history, current rotation, and replacement needs on top of the same catalog.
           </p>
           <div class="hero-actions">
-            <a class="cta-primary" href="/explore">EXPLORE SHOES</a>
+            <a class="cta-primary" href="/explore">Explore shoes</a>
             {% if personalization_enabled %}
-            <a class="cta-secondary" href="{{ personalization_base_url }}/">PERSONALIZE MY RECOMMENDATIONS</a>
+            <a class="cta-secondary" href="{{ personalization_base_url }}/">Personalize my recommendations</a>
             {% else %}
-            <span class="cta-secondary is-disabled">PERSONALIZE MY RECOMMENDATIONS</span>
+            <span class="cta-secondary is-disabled">Personalize my recommendations</span>
             {% endif %}
           </div>
           {% if not personalization_enabled %}
@@ -51,7 +51,7 @@
 
         <section class="hero-grid">
           <article class="feature-card">
-            <p class="eyebrow">PUBLIC EXPLORER</p>
+            <p class="eyebrow">Public explorer</p>
             <h2>Anonymous shoe-to-shoe matching</h2>
             <p>Use the current catalog to find adjacent models by ride role, terrain, stack, and overall similarity.</p>
             <ul class="feature-list">
@@ -61,7 +61,7 @@
             </ul>
           </article>
           <article class="feature-card">
-            <p class="eyebrow">PERSONALIZATION</p>
+            <p class="eyebrow">Personalization</p>
             <h2>Context and rotation aware</h2>
             <p>Import CSV or GPX history, track owned shoes, and get recommendations for easy days, workouts, long runs, trail use, and replacements.</p>
             <ul class="feature-list">
