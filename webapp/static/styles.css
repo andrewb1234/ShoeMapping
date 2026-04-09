@@ -706,3 +706,83 @@ a {
     grid-template-columns: 1fr;
   }
 }
+
+/* Modal styles for editing retirement target */
+.modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(15, 23, 32, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--panel);
+  border-radius: var(--radius);
+  padding: 28px;
+  max-width: 420px;
+  width: min(90vw, 420px);
+  box-shadow: var(--shadow);
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.modal-header h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--ink-soft);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+}
+
+.modal-close:hover {
+  background: var(--line-soft);
+}
+
+.field-hint {
+  display: block;
+  margin-top: 6px;
+  color: var(--ink-faint);
+  font-size: 0.85rem;
+}
+
+/* Small edit button for table cells */
+.edit-target-btn {
+  margin-left: 8px;
+  padding: 2px 6px;
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid var(--line-soft);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--ink-soft);
+}
+
+.edit-target-btn:hover {
+  background: var(--line-soft);
+  color: var(--ink);
+}

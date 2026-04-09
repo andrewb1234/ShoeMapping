@@ -164,6 +164,11 @@ function renderProfile() {
   });
 }
 
+function canEditShoe(shoe) {
+  // Only shoes with an actual OwnedShoe record (not imported-only) can be edited
+  return !shoe.id.startsWith("imported:");
+}
+
 function renderRotation() {
   if (!personalizeState.rotation.length) {
     rotationTableBody.innerHTML = `<tr><td colspan="6">No shoes detected yet. Add a shoe manually or import activity history.</td></tr>`;
@@ -171,7 +176,7 @@ function renderRotation() {
   }
   rotationTableBody.innerHTML = personalizeState.rotation
     .map((shoe) => `
-      <tr>
+      <tr data-shoe-id="${shoe.id}">
         <td>
           <div class="table-primary">${shoe.display_name}</div>
           <div class="table-note">${shoe.raw_import_name && shoe.raw_import_name !== shoe.display_name ? `Imported as ${shoe.raw_import_name}` : shoe.ride_role || "role unknown"}</div>
@@ -179,7 +184,10 @@ function renderRotation() {
         <td>${sourceKindLabel(shoe.source_kind)}</td>
         <td>${mappingStatusLabel(shoe.mapping_status)}</td>
         <td>${shoe.current_mileage_km.toFixed(1)} km</td>
-        <td><span class="status-badge">${statusLabel(shoe)}</span></td>
+        <td>
+          <span class="status-badge">${statusLabel(shoe)}</span>
+          ${canEditShoe(shoe) ? `<button class="small-button edit-target-btn" data-shoe-id="${shoe.id}" data-current-target="${shoe.retirement_target_km || ''}" title="Edit retirement target">✎</button>` : ""}
+        </td>
         <td>${shoe.recent_uses_30d || 0}</td>
       </tr>
     `)
@@ -382,6 +390,53 @@ contextTabs.forEach((tab) => {
   });
 });
 
+// Modal for editing retirement target
+const editTargetModal = document.getElementById("edit-target-modal");
+const editTargetForm = document.getElementById("edit-target-form");
+const editShoeIdInput = document.getElementById("edit-shoe-id");
+const editRetirementTargetInput = document.getElementById("edit-retirement-target");
+const modalCloseBtn = document.getElementById("modal-close-btn");
+const modalCancelBtn = document.getElementById("modal-cancel-btn");
+
+function openEditTargetModal(shoeId, currentTarget) {
+  editShoeIdInput.value = shoeId;
+  editRetirementTargetInput.value = currentTarget || "";
+  editTargetModal.style.display = "flex";
+}
+
+function closeEditTargetModal() {
+  editTargetModal.style.display = "none";
+  editTargetForm.reset();
+}
+
+modalCloseBtn.addEventListener("click", closeEditTargetModal);
+modalCancelBtn.addEventListener("click", closeEditTargetModal);
+editTargetModal.addEventListener("click", (event) => {
+  if (event.target === editTargetModal) {
+    closeEditTargetModal();
+  }
+});
+
+editTargetForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const shoeId = editShoeIdInput.value;
+  const targetValue = editRetirementTargetInput.value;
+  try {
+    await apiFetch(`/api/rotation/shoes/${shoeId}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        retirement_target_km: targetValue ? Number(targetValue) : null,
+      }),
+    });
+    setBanner("Updated retirement target.", "success");
+    closeEditTargetModal();
+    await refreshWorkspace();
+  } catch (error) {
+    setBanner(error.message, "error");
+  }
+});
+
 recommendationResults.addEventListener("click", async (event) => {
   const addButton = event.target.closest("[data-add-shoe]");
   const likeButton = event.target.closest("[data-feedback-like]");
@@ -413,6 +468,16 @@ recommendationResults.addEventListener("click", async (event) => {
     }
   } catch (error) {
     setBanner(error.message, "error");
+  }
+});
+
+// Handle edit target button clicks in rotation table
+rotationTableBody.addEventListener("click", (event) => {
+  const editBtn = event.target.closest(".edit-target-btn");
+  if (editBtn) {
+    const shoeId = editBtn.dataset.shoeId;
+    const currentTarget = editBtn.dataset.currentTarget;
+    openEditTargetModal(shoeId, currentTarget);
   }
 });
 

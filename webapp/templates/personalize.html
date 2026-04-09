@@ -238,5 +238,27 @@
         </section>
       </main>
     </div>
+
+    <!-- Modal for editing retirement target -->
+    <div id="edit-target-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Edit Retirement Target</h3>
+          <button type="button" class="modal-close" id="modal-close-btn">&times;</button>
+        </div>
+        <form id="edit-target-form" class="form-grid">
+          <input type="hidden" id="edit-shoe-id" />
+          <label class="field field-wide">
+            <span>Retirement target (km)</span>
+            <input id="edit-retirement-target" type="number" min="0" step="10" placeholder="e.g., 600" />
+            <small class="field-hint">Leave blank to use auto-defaults based on shoe type</small>
+          </label>
+          <div class="button-row">
+            <button type="button" class="cta-secondary" id="modal-cancel-btn">Cancel</button>
+            <button type="submit" class="cta-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </body>
 </html>
