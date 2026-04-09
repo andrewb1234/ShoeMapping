@@ -183,6 +183,25 @@ def build_rotation_summary(
     for identifier, entry in sorted(usage_by_identifier.items(), key=lambda item: item[1]["raw_import_name"].lower()):
         if identifier in consumed_identifiers:
             continue
+        
+        # Check if there's an OwnedShoe record for this imported shoe
+        # This happens when the user has edited or mapped the imported shoe
+        owned_match = None
+        for owned in owned_shoes:
+            # Check if this OwnedShoe is associated with the imported gear identifier
+            if owned.strava_gear_id and normalize_text(owned.strava_gear_id) == identifier:
+                owned_match = owned
+                break
+            # Also check name-based matching for backwards compatibility
+            owned_identifiers = _potential_identifiers(owned, catalog_service)
+            if identifier in owned_identifiers:
+                owned_match = owned
+                break
+        
+        if owned_match:
+            # Skip this entry as it's already represented by the OwnedShoe
+            continue
+        
         catalog_shoe_id = catalog_identifier_map.get(identifier)
         catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id or "")
         terrain = catalog_entry.get("terrain")
@@ -259,6 +278,7 @@ def create_owned_shoe_from_imported(
         catalog_shoe_id=catalog_shoe_id,
         custom_brand=catalog_entry.get("brand") if catalog_entry else None,
         custom_name=catalog_entry.get("shoe_name") if catalog_entry else entry["raw_import_name"],
+        strava_gear_id=gear_identifier,  # Store the gear identifier for proper association
         start_mileage_km=0.0,  # Will be calculated from activities
         retirement_target_km=payload.retirement_target_km,
         notes=payload.notes,
@@ -282,57 +302,72 @@ def update_imported_shoe_mapping(
     catalog_shoe_id: str | None,
     catalog_service: ShoeCatalogService,
 ) -> OwnedShoe | None:
-    """Update the catalog mapping for an imported shoe."""
+    """Update the catalog mapping for an imported shoe in place."""
     if not imported_shoe_id.startswith("imported:"):
         raise ValueError("Shoe ID must start with 'imported:'")
     
     gear_identifier = imported_shoe_id[9:]  # Remove "imported:" prefix
     
+    # Always create/update an OwnedShoe record for the imported shoe
+    # This ensures we have a persistent record to update
+    usage_by_identifier = _activity_usage(db, user.id)
+    entry = usage_by_identifier.get(normalize_text(gear_identifier))
+    
+    if not entry:
+        raise ValueError("No activity data found for imported shoe")
+    
     # Check if an OwnedShoe already exists for this imported shoe
+    # Look for one that might have been created from a previous edit
     existing = db.scalar(
         select(OwnedShoe).where(
             OwnedShoe.user_id == user.id,
-            OwnedShoe.custom_name.like(f"%{gear_identifier}%"),
+            OwnedShoe.strava_gear_id == gear_identifier,
         )
     )
     
-    if existing:
-        # Update existing record
-        if catalog_shoe_id:
-            catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id)
-            existing.catalog_shoe_id = catalog_shoe_id
-            existing.custom_brand = catalog_entry.get("brand")
-            existing.custom_name = catalog_entry.get("shoe_name")
-        else:
-            existing.catalog_shoe_id = None
-        db.add(existing)
-        db.commit()
-        return existing
-    elif catalog_shoe_id:
-        # Create new OwnedShoe record with the mapping
-        usage_by_identifier = _activity_usage(db, user.id)
-        entry = usage_by_identifier.get(normalize_text(gear_identifier))
-        
-        if not entry:
-            raise ValueError("No activity data found for imported shoe")
-        
+    if catalog_shoe_id:
+        # Get catalog information
         catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id)
         terrain = catalog_entry.get("terrain")
         facets = catalog_entry.get("facets") or {}
         ride_role = facets.get("ride_role")
         
-        owned_shoe = OwnedShoe(
-            user_id=user.id,
-            catalog_shoe_id=catalog_shoe_id,
-            custom_brand=catalog_entry.get("brand"),
-            custom_name=catalog_entry.get("shoe_name"),
-            start_mileage_km=0.0,
-            retirement_target_km=default_retirement_target(terrain, ride_role),
-            is_active=True,
-        )
-        db.add(owned_shoe)
+        if existing:
+            # Update existing record with catalog mapping
+            existing.catalog_shoe_id = catalog_shoe_id
+            existing.custom_brand = catalog_entry.get("brand")
+            existing.custom_name = catalog_entry.get("shoe_name")
+            # Keep the existing retirement_target_km if set, otherwise use default
+            if not existing.retirement_target_km:
+                existing.retirement_target_km = default_retirement_target(terrain, ride_role)
+        else:
+            # Create new OwnedShoe record with the mapping
+            owned_shoe = OwnedShoe(
+                user_id=user.id,
+                catalog_shoe_id=catalog_shoe_id,
+                custom_brand=catalog_entry.get("brand"),
+                custom_name=catalog_entry.get("shoe_name"),
+                strava_gear_id=gear_identifier,  # Store the gear identifier for proper association
+                start_mileage_km=0.0,  # Will be calculated from activities
+                retirement_target_km=default_retirement_target(terrain, ride_role),
+                is_active=True,
+            )
+            db.add(owned_shoe)
+            existing = owned_shoe
+        
+        db.add(existing)
         db.commit()
-        return owned_shoe
+        return existing
     else:
-        # No mapping and no existing record - return None to keep as imported-only
-        return None
+        # No mapping - if we have an existing record, clear the catalog mapping
+        if existing:
+            existing.catalog_shoe_id = None
+            # Keep the custom name as the original imported name
+            existing.custom_name = entry["raw_import_name"]
+            existing.custom_brand = None
+            db.add(existing)
+            db.commit()
+            return existing
+        else:
+            # No existing record and no mapping - return None to keep as imported-only
+            return None
