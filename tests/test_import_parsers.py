@@ -1,4 +1,5 @@
-from personalization.imports import parse_csv_bytes, parse_gpx_bytes
+from personalization.imports import parse_csv_bytes, parse_gpx_bytes, summarize_detected_shoes
+from webapp.services import ShoeCatalogService
 
 
 def test_parse_csv_bytes_maps_common_columns() -> None:
@@ -24,3 +25,17 @@ def test_parse_gpx_bytes_extracts_distance_and_missing_signal_warnings() -> None
     assert activities[0]["distance_m"] > 0
     assert activities[0]["terrain_guess"] in {"trail", "road"}
     assert "heart rate" in warnings[0].lower()
+
+
+def test_summarize_detected_shoes_uses_conservative_catalog_matching() -> None:
+    activities = [
+        {"gear_ref": "Nike Pegasus 41"},
+        {"gear_ref": "Peg 41"},
+        {"gear_ref": "Nike Pegasus 41"},
+    ]
+
+    summary = summarize_detected_shoes(activities, catalog_service=ShoeCatalogService())
+
+    assert summary["detected_shoe_count"] == 2
+    assert summary["mapped_shoe_count"] == 1
+    assert summary["unmapped_shoe_count"] == 1

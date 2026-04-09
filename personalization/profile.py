@@ -57,6 +57,14 @@ def _empty_profile(user_id: str, overrides: dict | None = None) -> tuple[dict, d
         "cadence_coverage": 0.0,
         "gear_coverage": 0.0,
         "known_terrain_share": 0.0,
+        "missing_signals": profile_missing_signals(
+            {
+                "hr_coverage": 0.0,
+                "cadence_coverage": 0.0,
+                "gear_coverage": 0.0,
+            },
+            0,
+        ),
     }
     return summary, coverage
 

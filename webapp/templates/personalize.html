@@ -39,7 +39,7 @@
             <h1>Build recommendations around your current training and rotation.</h1>
           </div>
           <p class="support-copy">
-            Import history, add owned shoes, review the derived runner profile, and compare recommendations by context. The system explains why each option appears and what data is missing.
+            Import history, add shoes, and compare recommendations by context. This page should always make it obvious what run history we have, what shoes we detected, and what signals are still missing.
           </p>
           <div id="personalize-banner" class="message-banner info">Starting session…</div>
           <ol class="stepper">
@@ -152,7 +152,7 @@
             <div class="panel-header">
               <div>
                 <p class="eyebrow">Step 3</p>
-                <h2>Review the derived profile</h2>
+                <h2>Review what we know about you</h2>
               </div>
             </div>
             <div id="profile-summary" class="summary-grid"></div>
@@ -210,24 +210,26 @@
 
             <div class="panel-header section-break">
               <div>
-                <p class="eyebrow">Owned shoes</p>
-                <h2>Rotation status and retirement watch</h2>
+                <p class="eyebrow">Your shoes</p>
+                <h2>Manual shoes and imported shoe detections</h2>
               </div>
             </div>
+            <p class="support-copy compact">Includes shoes you added manually and shoes we detected from imported activity history.</p>
             <div class="table-wrap">
               <table class="data-table">
                 <thead>
                   <tr>
                     <th>Shoe</th>
-                    <th>Role</th>
+                    <th>Source</th>
+                    <th>Catalog status</th>
                     <th>Mileage</th>
-                    <th>Target</th>
-                    <th>Status</th>
+                    <th>Health</th>
+                    <th>Recent uses</th>
                   </tr>
                 </thead>
                 <tbody id="rotation-table-body">
                   <tr>
-                    <td colspan="5">No shoes added yet.</td>
+                    <td colspan="6">No shoes detected yet.</td>
                   </tr>
                 </tbody>
               </table>

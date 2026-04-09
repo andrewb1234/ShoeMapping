@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from personalization.db import get_db_session
 from personalization.jobs import enqueue_profile_refresh
 from personalization.models import OwnedShoe, User
-from personalization.rotation import build_rotation_summary, default_retirement_target
+from personalization.rotation import build_rotation_summary, default_retirement_target, summarize_rotation_inventory
 from personalization.schemas import (
     OwnedShoeCreateRequest,
     OwnedShoeResponse,
@@ -29,7 +29,10 @@ def get_rotation(
     catalog_service: ShoeCatalogService = Depends(get_catalog_service),
 ) -> RotationResponse:
     shoes = build_rotation_summary(db, user, catalog_service)
-    return RotationResponse(shoes=[OwnedShoeResponse(**shoe) for shoe in shoes])
+    return RotationResponse(
+        shoes=[OwnedShoeResponse(**shoe) for shoe in shoes],
+        summary=summarize_rotation_inventory(shoes),
+    )
 
 
 @router.post("/api/rotation/shoes", response_model=OwnedShoeResponse)

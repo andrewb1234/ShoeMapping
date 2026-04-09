@@ -3,6 +3,7 @@ const personalizeState = {
   activeContext: "easy",
   profile: null,
   rotation: [],
+  rotationSummary: null,
   recommendations: {},
   catalogShoes: [],
 };
@@ -49,6 +50,39 @@ function chip(label, value) {
   return `<span class="chip">${label}: ${value}</span>`;
 }
 
+function formatCount(value) {
+  return Number(value || 0).toLocaleString();
+}
+
+function formatList(items) {
+  if (!items?.length) {
+    return `<p class="support-copy compact">No major gaps right now.</p>`;
+  }
+  return `<ul class="signal-list">${items.map((item) => `<li>${item}</li>`).join("")}</ul>`;
+}
+
+function sourceKindLabel(value) {
+  if (value === "manual_with_import") {
+    return "manual + imported activity";
+  }
+  if (value === "imported") {
+    return "imported activity";
+  }
+  return "manual";
+}
+
+function mappingStatusLabel(value) {
+  return value === "catalog_matched" ? "matched" : "unmapped";
+}
+
+function statusLabel(shoe) {
+  const label = shoe.status.replaceAll("_", " ");
+  if (shoe.remaining_km === null || shoe.remaining_km === undefined) {
+    return label;
+  }
+  return `${label} · ${Math.max(shoe.remaining_km, 0).toFixed(0)} km left`;
+}
+
 function switchSource(nextSource) {
   personalizeState.currentSource = nextSource;
   sourceCards.forEach((card) => card.classList.toggle("active", card.dataset.source === nextSource));
@@ -66,26 +100,59 @@ function renderProfile() {
   const summary = profile.summary || {};
   const coverage = profile.coverage || {};
   const overrides = profile.manual_overrides || {};
+  const rotationSummary = personalizeState.rotationSummary || {};
+  const detectedShoes = personalizeState.rotation.length;
   profileSummary.innerHTML = `
-    <div class="summary-tile">
-      <span class="summary-label">Weekly mileage</span>
-      <span class="summary-value">${summary.weekly_mileage_km ?? 0} km</span>
-    </div>
-    <div class="summary-tile">
-      <span class="summary-label">Runs in lookback</span>
-      <span class="summary-value">${summary.total_runs ?? 0}</span>
-    </div>
-    <div class="summary-tile">
-      <span class="summary-label">Terrain preference</span>
-      <span class="summary-value">${summary.terrain_preference || "unknown"}</span>
-    </div>
-    <div class="summary-tile">
-      <span class="summary-label">Rotation breadth</span>
-      <span class="summary-value">${summary.shoe_rotation_breadth ?? 0}</span>
-    </div>
-    <div class="summary-tile field-wide">
-      <span class="summary-label">Missing signals</span>
-      <span class="support-copy">${(coverage.missing_signals || []).join(" ") || "None right now."}</span>
+    <div class="summary-stack">
+      <section class="summary-block">
+        <p class="eyebrow">Training history we have</p>
+        <div class="summary-grid">
+          <div class="summary-tile">
+            <span class="summary-label">Imported runs</span>
+            <span class="summary-value">${formatCount(summary.total_runs)}</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Weekly mileage</span>
+            <span class="summary-value">${summary.weekly_mileage_km ?? 0} km</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Terrain preference</span>
+            <span class="summary-value">${summary.terrain_preference || "unknown"}</span>
+          </div>
+        </div>
+      </section>
+      <section class="summary-block">
+        <p class="eyebrow">Shoes we detected</p>
+        <div class="summary-grid">
+          <div class="summary-tile">
+            <span class="summary-label">Detected shoes</span>
+            <span class="summary-value">${formatCount(detectedShoes)}</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Manual shoes</span>
+            <span class="summary-value">${formatCount(rotationSummary.manual_count)}</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Imported only</span>
+            <span class="summary-value">${formatCount(rotationSummary.imported_count)}</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Mapped shoes</span>
+            <span class="summary-value">${formatCount(rotationSummary.mapped_count)}</span>
+          </div>
+          <div class="summary-tile">
+            <span class="summary-label">Unmapped shoes</span>
+            <span class="summary-value">${formatCount(rotationSummary.unmapped_count)}</span>
+          </div>
+        </div>
+      </section>
+      <section class="summary-block">
+        <p class="eyebrow">What’s missing</p>
+        <div class="summary-tile field-wide">
+          <span class="summary-label">Data gaps</span>
+          ${formatList(coverage.missing_signals || [])}
+        </div>
+      </section>
     </div>
   `;
   document.getElementById("profile-preferred-terrain").value = overrides.preferred_terrain || "";
@@ -99,17 +166,21 @@ function renderProfile() {
 
 function renderRotation() {
   if (!personalizeState.rotation.length) {
-    rotationTableBody.innerHTML = `<tr><td colspan="5">No shoes added yet.</td></tr>`;
+    rotationTableBody.innerHTML = `<tr><td colspan="6">No shoes detected yet. Add a shoe manually or import activity history.</td></tr>`;
     return;
   }
   rotationTableBody.innerHTML = personalizeState.rotation
     .map((shoe) => `
       <tr>
-        <td>${shoe.display_name}</td>
-        <td>${shoe.ride_role || "unknown"}</td>
+        <td>
+          <div class="table-primary">${shoe.display_name}</div>
+          <div class="table-note">${shoe.raw_import_name && shoe.raw_import_name !== shoe.display_name ? `Imported as ${shoe.raw_import_name}` : shoe.ride_role || "role unknown"}</div>
+        </td>
+        <td>${sourceKindLabel(shoe.source_kind)}</td>
+        <td>${mappingStatusLabel(shoe.mapping_status)}</td>
         <td>${shoe.current_mileage_km.toFixed(1)} km</td>
-        <td>${shoe.retirement_target_km ? `${shoe.retirement_target_km.toFixed(0)} km` : "—"}</td>
-        <td><span class="status-badge">${shoe.status.replace("_", " ")}</span></td>
+        <td><span class="status-badge">${statusLabel(shoe)}</span></td>
+        <td>${shoe.recent_uses_30d || 0}</td>
       </tr>
     `)
     .join("");
@@ -178,7 +249,7 @@ async function bootstrapSession() {
   const payload = await apiFetch("/api/personalization/session/bootstrap", { method: "POST" });
   setBanner(
     payload.session_status === "created"
-      ? "Session ready. You can personalize recommendations without creating an account."
+      ? "Session ready. Add shoes or import activity history so we can show exactly what data we have about you."
       : "Session restored. Continue where you left off.",
     "success",
   );
@@ -192,6 +263,7 @@ async function loadProfile() {
 async function loadRotation() {
   const payload = await apiFetch("/api/rotation");
   personalizeState.rotation = payload.shoes || [];
+  personalizeState.rotationSummary = payload.summary || null;
   renderRotation();
 }
 
@@ -204,6 +276,7 @@ async function loadRecommendations(context = personalizeState.activeContext) {
 
 async function refreshWorkspace() {
   await Promise.all([loadProfile(), loadRotation()]);
+  renderProfile();
   await loadRecommendations(personalizeState.activeContext);
 }
 
@@ -258,7 +331,12 @@ uploadForm.addEventListener("submit", async (event) => {
       method: "POST",
       body: formData,
     });
-    setBanner(`Imported ${payload.summary.imported_activities || 0} activities. ${payload.warnings.join(" ")}`.trim(), "success");
+    const summary = payload.summary || {};
+    const warnings = payload.warnings?.length ? ` ${payload.warnings.join(" ")}` : "";
+    setBanner(
+      `Imported ${summary.imported_activities || 0} runs. Detected ${summary.detected_shoe_count || 0} shoe names, ${summary.mapped_shoe_count || 0} matched to the catalog, ${summary.unmapped_shoe_count || 0} still unmapped.${warnings}`.trim(),
+      "success",
+    );
     fileInput.value = "";
     await refreshWorkspace();
   } catch (error) {

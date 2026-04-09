@@ -63,10 +63,23 @@ class OwnedShoeResponse(BaseModel):
     notes: Optional[str] = None
     is_active: bool
     facets: Optional[Dict[str, Any]] = None
+    source_kind: str
+    mapping_status: str
+    raw_import_name: Optional[str] = None
+    activity_count: int = 0
+    recent_uses_30d: int = 0
+
+
+class RotationSummary(BaseModel):
+    manual_count: int = 0
+    imported_count: int = 0
+    mapped_count: int = 0
+    unmapped_count: int = 0
 
 
 class RotationResponse(BaseModel):
     shoes: List[OwnedShoeResponse]
+    summary: RotationSummary = Field(default_factory=RotationSummary)
 
 
 class FeedbackRequest(BaseModel):

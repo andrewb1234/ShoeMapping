@@ -12,7 +12,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from personalization.models import ActivityFeature, ActivityLabel, ActivityRaw, ActivitySource, LabelSource, RunContext, SourceType, User
+from personalization.rotation import build_catalog_identifier_map
 from personalization.utils import checksum_for_payload, normalize_text, parse_datetime, utcnow
+from webapp.services import ShoeCatalogService
 
 
 CSV_ALIASES = {
@@ -254,6 +256,33 @@ def parse_gpx_bytes(filename: str, payload: bytes) -> tuple[list[dict[str, Any]]
     return normalized, summary, warnings
 
 
+def summarize_detected_shoes(
+    normalized_activities: List[dict[str, Any]],
+    catalog_service: ShoeCatalogService | None = None,
+) -> dict[str, int]:
+    catalog_service = catalog_service or ShoeCatalogService()
+    catalog_identifier_map = build_catalog_identifier_map(catalog_service)
+    seen_identifiers: set[str] = set()
+    mapped = 0
+    unmapped = 0
+
+    for activity in normalized_activities:
+        identifier = normalize_text(activity.get("gear_ref"))
+        if not identifier or identifier in seen_identifiers:
+            continue
+        seen_identifiers.add(identifier)
+        if catalog_identifier_map.get(identifier):
+            mapped += 1
+        else:
+            unmapped += 1
+
+    return {
+        "detected_shoe_count": len(seen_identifiers),
+        "mapped_shoe_count": mapped,
+        "unmapped_shoe_count": unmapped,
+    }
+
+
 def store_normalized_activities(
     session: Session,
     user: User,
@@ -331,4 +360,10 @@ def store_normalized_activities(
         )
         imported += 1
     session.commit()
-    return {"imported_activities": imported, "duplicates": duplicates, "source_id": source.id}
+    shoe_summary = summarize_detected_shoes(normalized_activities)
+    return {
+        "imported_activities": imported,
+        "duplicates": duplicates,
+        "source_id": source.id,
+        **shoe_summary,
+    }
