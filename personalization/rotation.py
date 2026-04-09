@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from personalization.models import ActivityFeature, ActivityRaw, OwnedShoe, User
+from personalization.schemas import OwnedShoeUpdateRequest
 from personalization.utils import normalize_text, utcnow
 from webapp.services import ShoeCatalogService
 
@@ -225,3 +226,113 @@ def summarize_rotation_inventory(shoes: List[dict]) -> dict:
         "mapped_count": mapped_count,
         "unmapped_count": unmapped_count,
     }
+
+
+def create_owned_shoe_from_imported(
+    db: Session,
+    user: User,
+    imported_shoe_id: str,
+    payload: OwnedShoeUpdateRequest,
+    catalog_service: ShoeCatalogService,
+) -> OwnedShoe:
+    """Create an OwnedShoe record from an imported shoe when it's first edited."""
+    if not imported_shoe_id.startswith("imported:"):
+        raise ValueError("Shoe ID must start with 'imported:'")
+    
+    # Extract the gear identifier from the imported shoe ID
+    gear_identifier = imported_shoe_id[9:]  # Remove "imported:" prefix
+    
+    # Get activity data for this shoe
+    usage_by_identifier = _activity_usage(db, user.id)
+    entry = usage_by_identifier.get(normalize_text(gear_identifier))
+    
+    if not entry:
+        raise ValueError("No activity data found for imported shoe")
+    
+    # Try to find a catalog match
+    catalog_shoe_id = resolve_catalog_shoe_id(entry["raw_import_name"], catalog_service)
+    catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id or "")
+    
+    # Create the OwnedShoe record
+    owned_shoe = OwnedShoe(
+        user_id=user.id,
+        catalog_shoe_id=catalog_shoe_id,
+        custom_brand=catalog_entry.get("brand") if catalog_entry else None,
+        custom_name=catalog_entry.get("shoe_name") if catalog_entry else entry["raw_import_name"],
+        start_mileage_km=0.0,  # Will be calculated from activities
+        retirement_target_km=payload.retirement_target_km,
+        notes=payload.notes,
+        is_active=True,
+    )
+    
+    # Apply any other updates from payload
+    updates = payload.model_dump(exclude_unset=True, exclude={"retirement_target_km", "notes"})
+    for field, value in updates.items():
+        setattr(owned_shoe, field, value)
+    
+    db.add(owned_shoe)
+    db.commit()
+    return owned_shoe
+
+
+def update_imported_shoe_mapping(
+    db: Session,
+    user: User,
+    imported_shoe_id: str,
+    catalog_shoe_id: str | None,
+    catalog_service: ShoeCatalogService,
+) -> OwnedShoe | None:
+    """Update the catalog mapping for an imported shoe."""
+    if not imported_shoe_id.startswith("imported:"):
+        raise ValueError("Shoe ID must start with 'imported:'")
+    
+    gear_identifier = imported_shoe_id[9:]  # Remove "imported:" prefix
+    
+    # Check if an OwnedShoe already exists for this imported shoe
+    existing = db.scalar(
+        select(OwnedShoe).where(
+            OwnedShoe.user_id == user.id,
+            OwnedShoe.custom_name.like(f"%{gear_identifier}%"),
+        )
+    )
+    
+    if existing:
+        # Update existing record
+        if catalog_shoe_id:
+            catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id)
+            existing.catalog_shoe_id = catalog_shoe_id
+            existing.custom_brand = catalog_entry.get("brand")
+            existing.custom_name = catalog_entry.get("shoe_name")
+        else:
+            existing.catalog_shoe_id = None
+        db.add(existing)
+        db.commit()
+        return existing
+    elif catalog_shoe_id:
+        # Create new OwnedShoe record with the mapping
+        usage_by_identifier = _activity_usage(db, user.id)
+        entry = usage_by_identifier.get(normalize_text(gear_identifier))
+        
+        if not entry:
+            raise ValueError("No activity data found for imported shoe")
+        
+        catalog_entry = catalog_service.get_shoe_by_id(catalog_shoe_id)
+        terrain = catalog_entry.get("terrain")
+        facets = catalog_entry.get("facets") or {}
+        ride_role = facets.get("ride_role")
+        
+        owned_shoe = OwnedShoe(
+            user_id=user.id,
+            catalog_shoe_id=catalog_shoe_id,
+            custom_brand=catalog_entry.get("brand"),
+            custom_name=catalog_entry.get("shoe_name"),
+            start_mileage_km=0.0,
+            retirement_target_km=default_retirement_target(terrain, ride_role),
+            is_active=True,
+        )
+        db.add(owned_shoe)
+        db.commit()
+        return owned_shoe
+    else:
+        # No mapping and no existing record - return None to keep as imported-only
+        return None

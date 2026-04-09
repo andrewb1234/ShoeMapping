@@ -260,5 +260,32 @@
         </form>
       </div>
     </div>
+
+    <!-- Modal for mapping imported shoe to catalog -->
+    <div id="map-shoe-modal" class="modal" style="display: none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Map Shoe to Catalog</h3>
+          <button type="button" class="modal-close" id="map-modal-close-btn">&times;</button>
+        </div>
+        <form id="map-shoe-form" class="form-grid">
+          <input type="hidden" id="map-shoe-id" />
+          <label class="field field-wide">
+            <span>Imported shoe name</span>
+            <input id="map-imported-name" type="text" readonly />
+          </label>
+          <label class="field field-wide">
+            <span>Match to catalog shoe</span>
+            <select id="map-catalog-shoe">
+              <option value="">Leave unmapped</option>
+            </select>
+          </label>
+          <div class="button-row">
+            <button type="button" class="cta-secondary" id="map-modal-cancel-btn">Cancel</button>
+            <button type="submit" class="cta-primary">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </body>
 </html>

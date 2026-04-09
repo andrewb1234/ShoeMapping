@@ -7,7 +7,13 @@ from sqlalchemy.orm import Session
 from personalization.db import get_db_session
 from personalization.jobs import enqueue_profile_refresh
 from personalization.models import OwnedShoe, User
-from personalization.rotation import build_rotation_summary, default_retirement_target, summarize_rotation_inventory
+from personalization.rotation import (
+    build_rotation_summary,
+    default_retirement_target,
+    summarize_rotation_inventory,
+    create_owned_shoe_from_imported,
+    update_imported_shoe_mapping,
+)
 from personalization.schemas import (
     OwnedShoeCreateRequest,
     OwnedShoeResponse,
@@ -74,6 +80,16 @@ def update_owned_shoe(
     db: Session = Depends(get_db_session),
     catalog_service: ShoeCatalogService = Depends(get_catalog_service),
 ) -> OwnedShoeResponse:
+    # Handle imported shoes (IDs starting with "imported:")
+    if shoe_id.startswith("imported:"):
+        owned_shoe = create_owned_shoe_from_imported(
+            db, user, shoe_id, payload, catalog_service
+        )
+        shoes = build_rotation_summary(db, user, catalog_service)
+        updated = next(shoe for shoe in shoes if shoe["id"] == owned_shoe.id)
+        return OwnedShoeResponse(**updated)
+    
+    # Handle existing OwnedShoe records
     owned_shoe = db.scalar(
         select(OwnedShoe).where(OwnedShoe.id == shoe_id, OwnedShoe.user_id == user.id)
     )
@@ -86,5 +102,38 @@ def update_owned_shoe(
     db.commit()
     enqueue_profile_refresh(db, user.id)
     shoes = build_rotation_summary(db, user, catalog_service)
-    updated = next(shoe for shoe in shoes if shoe["id"] == owned_shoe.id)
+    updated = next(shoe for shoe in shoes if shoe["id"] == shoe_id)
     return OwnedShoeResponse(**updated)
+
+
+@router.post("/api/rotation/shoes/{shoe_id}/map", response_model=OwnedShoeResponse)
+def map_imported_shoe(
+    shoe_id: str,
+    payload: dict,
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db_session),
+    catalog_service: ShoeCatalogService = Depends(get_catalog_service),
+) -> OwnedShoeResponse:
+    """Map an imported shoe to a catalog shoe or leave it unmapped."""
+    if not shoe_id.startswith("imported:"):
+        raise HTTPException(status_code=400, detail="Only imported shoes can be mapped")
+    
+    catalog_shoe_id = payload.get("catalog_shoe_id")
+    owned_shoe = update_imported_shoe_mapping(
+        db, user, shoe_id, catalog_shoe_id, catalog_service
+    )
+    
+    if owned_shoe:
+        enqueue_profile_refresh(db, user.id)
+        shoes = build_rotation_summary(db, user, catalog_service)
+        updated = next(shoe for shoe in shoes if shoe["id"] == owned_shoe.id)
+        return OwnedShoeResponse(**updated)
+    else:
+        # If mapping was cleared, the shoe might have been deleted
+        shoes = build_rotation_summary(db, user, catalog_service)
+        # Find the imported shoe with the updated mapping status
+        for shoe in shoes:
+            if shoe["id"] == shoe_id:
+                return OwnedShoeResponse(**shoe)
+        
+        raise HTTPException(status_code=404, detail="Shoe not found after mapping update")

@@ -165,8 +165,8 @@ function renderProfile() {
 }
 
 function canEditShoe(shoe) {
-  // Only shoes with an actual OwnedShoe record (not imported-only) can be edited
-  return !shoe.id.startsWith("imported:");
+  // All shoes can be edited now - imported shoes will create OwnedShoe records on first edit
+  return true;
 }
 
 function renderRotation() {
@@ -186,7 +186,8 @@ function renderRotation() {
         <td>${shoe.current_mileage_km.toFixed(1)} km</td>
         <td>
           <span class="status-badge">${statusLabel(shoe)}</span>
-          ${canEditShoe(shoe) ? `<button class="small-button edit-target-btn" data-shoe-id="${shoe.id}" data-current-target="${shoe.retirement_target_km || ''}" title="Edit retirement target">✎</button>` : ""}
+          <button class="small-button edit-target-btn" data-shoe-id="${shoe.id}" data-current-target="${shoe.retirement_target_km || ''}" title="Edit retirement target">✎</button>
+          ${shoe.mapping_status === "unmapped" ? `<button class="small-button map-shoe-btn" data-shoe-id="${shoe.id}" data-shoe-name="${shoe.raw_import_name || shoe.display_name}" title="Map to catalog shoe">🔗</button>` : ""}
         </td>
         <td>${shoe.recent_uses_30d || 0}</td>
       </tr>
@@ -474,10 +475,75 @@ recommendationResults.addEventListener("click", async (event) => {
 // Handle edit target button clicks in rotation table
 rotationTableBody.addEventListener("click", (event) => {
   const editBtn = event.target.closest(".edit-target-btn");
+  const mapBtn = event.target.closest(".map-shoe-btn");
+  
   if (editBtn) {
     const shoeId = editBtn.dataset.shoeId;
     const currentTarget = editBtn.dataset.currentTarget;
     openEditTargetModal(shoeId, currentTarget);
+  }
+  
+  if (mapBtn) {
+    const shoeId = mapBtn.dataset.shoeId;
+    const shoeName = mapBtn.dataset.shoeName;
+    openMapShoeModal(shoeId, shoeName);
+  }
+});
+
+// Mapping modal elements
+const mapShoeModal = document.getElementById("map-shoe-modal");
+const mapShoeForm = document.getElementById("map-shoe-form");
+const mapShoeIdInput = document.getElementById("map-shoe-id");
+const mapImportedNameInput = document.getElementById("map-imported-name");
+const mapCatalogShoeSelect = document.getElementById("map-catalog-shoe");
+const mapModalCloseBtn = document.getElementById("map-modal-close-btn");
+const mapModalCancelBtn = document.getElementById("map-modal-cancel-btn");
+
+function openMapShoeModal(shoeId, shoeName) {
+  mapShoeIdInput.value = shoeId;
+  mapImportedNameInput.value = shoeName;
+  
+  // Populate catalog select
+  mapCatalogShoeSelect.innerHTML = 
+    `<option value="">Leave unmapped</option>` +
+    personalizeState.catalogShoes
+      .map((shoe) => `<option value="${shoe.shoe_id}">${shoe.display_name}</option>`)
+      .join("");
+  
+  mapShoeModal.style.display = "flex";
+}
+
+function closeMapShoeModal() {
+  mapShoeModal.style.display = "none";
+  mapShoeForm.reset();
+}
+
+mapModalCloseBtn.addEventListener("click", closeMapShoeModal);
+mapModalCancelBtn.addEventListener("click", closeMapShoeModal);
+mapShoeModal.addEventListener("click", (event) => {
+  if (event.target === mapShoeModal) {
+    closeMapShoeModal();
+  }
+});
+
+mapShoeForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const shoeId = mapShoeIdInput.value;
+  const catalogShoeId = mapCatalogShoeSelect.value;
+  
+  try {
+    await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        catalog_shoe_id: catalogShoeId || null,
+      }),
+    });
+    setBanner(catalogShoeId ? "Shoe mapped to catalog." : "Shoe left unmapped.", "success");
+    closeMapShoeModal();
+    await refreshWorkspace();
+  } catch (error) {
+    setBanner(error.message, "error");
   }
 });
 
