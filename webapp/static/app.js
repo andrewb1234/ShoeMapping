@@ -65,7 +65,7 @@ function anonymousExplanation(item) {
 function renderSelectedShoe(shoe) {
   if (!shoe) {
     selectedShoeCard.innerHTML = `
-      <p class="eyebrow">Selected shoe</p>
+      <p class="eyebrow">SELECTED SHOE</p>
       <h2>Select a shoe to see its role and neighboring options.</h2>
     `;
     return;
@@ -73,20 +73,36 @@ function renderSelectedShoe(shoe) {
   const facets = shoe.facets || {};
   const metrics = shoe.metric_snapshot || {};
   selectedShoeCard.innerHTML = `
-    <p class="eyebrow">Selected shoe</p>
-    <h2>${shoe.display_name}</h2>
-    <p class="support-copy">Role, terrain, and lab-derived facets from the current static catalog.</p>
-    <div class="chip-row">
-      ${chip("Terrain", shoe.terrain || "Unknown")}
-      ${chip("Role", facets.ride_role || "Unknown")}
-      ${chip("Cushion", facets.cushion_level || "Unknown")}
-      ${chip("Stability", facets.stability_level || "Unknown")}
-      ${chip("Weight", metrics.weight_g ? `${Math.round(metrics.weight_g)} g` : "—")}
-      ${chip("Drop", metrics.drop_mm ? `${metrics.drop_mm.toFixed(1)} mm` : "—")}
-    </div>
-    <div class="result-actions">
-      <button class="small-button" type="button" data-detail-shoe="${shoe.shoe_id}">View lab details</button>
-      ${personalizationCta("Personalize around this shoe", shoe.shoe_id)}
+    <div class="selected-shoe-content">
+      <img src="/api/shoes/${shoe.shoe_id}/image" alt="${shoe.display_name}" class="selected-shoe-image" onerror="this.style.display='none'" />
+      <h2>${shoe.display_name}</h2>
+      <p class="selected-shoe-brand">${shoe.brand}</p>
+      <div class="selected-shoe-stats">
+        <div class="stat-item">
+          <span class="stat-label">TERRAIN:</span>
+          <span class="stat-value">${shoe.terrain || "Unknown"}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">ROLE:</span>
+          <span class="stat-value">${facets.ride_role || "Unknown"}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">CUSHION:</span>
+          <span class="stat-value">${facets.cushion_level || "Unknown"}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">WEIGHT:</span>
+          <span class="stat-value">${metrics.weight_g ? `${Math.round(metrics.weight_g)} g` : "—"}</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">DROP:</span>
+          <span class="stat-value">${metrics.drop_mm ? `${metrics.drop_mm.toFixed(1)} mm` : "—"}</span>
+        </div>
+      </div>
+      <div class="result-actions">
+        <button class="small-button" type="button" data-detail-shoe="${shoe.shoe_id}">VIEW LAB DETAILS</button>
+        ${personalizationCta("PERSONALIZE AROUND THIS SHOE", shoe.shoe_id)}
+      </div>
     </div>
   `;
 }
@@ -102,26 +118,26 @@ function renderRecommendations(items) {
     .map((item) => {
       const facets = item.facets || {};
       const metrics = item.metric_snapshot || {};
+      const score = Math.round((item.similarity_score || 0) * 100);
       return `
-        <article class="result-card">
-          <header>
-            <div>
-              <p class="eyebrow">Catalog neighbor</p>
-              <h3>${item.display_name}</h3>
-            </div>
-            <span class="score-badge">${similarityLabel(item.similarity_score)}</span>
-          </header>
-          <div class="chip-row">
-            ${chip("Role", facets.ride_role || "Unknown")}
-            ${chip("Terrain", item.terrain || "Unknown")}
-            ${chip("Cushion", facets.cushion_level || "Unknown")}
-            ${chip("Drop", metrics.drop_mm ? `${metrics.drop_mm.toFixed(1)} mm` : "—")}
+        <article class="match-card">
+          <button class="match-close" data-reject-shoe="${item.shoe_id}">×</button>
+          <div class="match-score">${score}%</div>
+          
+          <div class="match-image-container">
+            <img src="/api/shoes/${item.shoe_id}/image" alt="${item.display_name}" class="match-image" onerror="this.style.display='none'" />
           </div>
-          <p class="support-copy">${anonymousExplanation(item)}</p>
-          <div class="result-actions">
-            <button class="small-button" type="button" data-detail-shoe="${item.shoe_id}">View lab details</button>
-            <button class="small-button" type="button" data-reject-shoe="${item.shoe_id}">Swap this match</button>
-            ${personalizationCta("Add in personalization flow", item.shoe_id)}
+          
+          <h3 class="match-model">${item.display_name}</h3>
+          <p class="match-brand">${item.brand}</p>
+          
+          <div class="match-stats">
+            <div>TERRAIN: ${item.terrain || 'Unknown'}</div>
+            <div>SCORE: ${score}/100</div>
+          </div>
+          
+          <div class="match-actions">
+            <button class="small-button" type="button" data-detail-shoe="${item.shoe_id}">VIEW FULL REPORT →</button>
           </div>
         </article>
       `;
