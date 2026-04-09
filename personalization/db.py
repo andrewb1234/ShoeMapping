@@ -13,10 +13,18 @@ class Base(DeclarativeBase):
     pass
 
 
+def _normalize_postgres_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        url = "postgresql+psycopg://" + url[len("postgres://"):]
+    elif url.startswith("postgresql://") and "+psycopg" not in url:
+        url = "postgresql+psycopg://" + url[len("postgresql://"):]
+    return url
+
+
 def _database_url() -> str:
     settings = get_settings()
     if settings.database_url:
-        return settings.database_url
+        return _normalize_postgres_url(settings.database_url)
     return f"sqlite:///{Path('data/personalization_dev.sqlite').resolve()}"
 
 
