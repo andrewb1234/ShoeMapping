@@ -40,39 +40,13 @@ const vizMileageContent = document.getElementById("viz-mileage-content");
 const vizPaceContent = document.getElementById("viz-pace-content");
 const vizCalendarContent = document.getElementById("viz-calendar-content");
 
-// State sections
-const landingState = document.getElementById("landing-state");
-const importState = document.getElementById("import-state");
-const mappingState = document.getElementById("mapping-state");
-const dashboardState = document.getElementById("dashboard-state");
-
-// Landing elements
-const getStartedBtn = document.getElementById("get-started-btn");
-
-// Import elements
-const dropZone = document.getElementById("drop-zone");
-const importFileInput = document.getElementById("import-file-input");
-const uploadBtn = document.getElementById("upload-btn");
-const uploadProgress = document.getElementById("upload-progress");
-const backToLandingBtn = document.getElementById("back-to-landing");
-const continueToMappingBtn = document.getElementById("continue-to-mapping");
-const previewMileage = document.getElementById("preview-mileage");
-const previewShoes = document.getElementById("preview-shoes");
-const previewActivities = document.getElementById("preview-activities");
-const previewDateRange = document.getElementById("preview-date-range");
-
-// Mapping elements
-const detectedShoesList = document.getElementById("detected-shoes-list");
-const saveAndContinueMappingBtn = document.getElementById("save-and-continue-mapping");
-const skipMappingBtn = document.getElementById("skip-mapping");
-
-// Dashboard elements
-const dashboardTabs = document.querySelectorAll(".dashboard-tabs .tab-btn");
-const tabContents = document.querySelectorAll(".tab-content");
-const recsHeader = document.getElementById("recs-header");
-const recsContent = document.getElementById("recs-content");
-const recsIndicator = document.getElementById("recs-indicator");
-const resultsStep = document.getElementById("results-step");
+// State section elements (will be assigned in DOMContentLoaded)
+let landingState, importState, mappingState, dashboardState;
+let getStartedBtn, dropZone, importFileInput, uploadBtn, uploadProgress;
+let backToLandingBtn, continueToMappingBtn;
+let previewMileage, previewShoes, previewActivities, previewDateRange;
+let detectedShoesList, saveAndContinueMappingBtn, skipMappingBtn;
+let dashboardTabs, tabContents, recsHeader, recsContent, recsIndicator, resultsStep;
 
 function setBanner(message, level = "info") {
   banner.textContent = message;
@@ -147,7 +121,14 @@ function switchSource(nextSource) {
 let currentState = "landing"; // landing, import, mapping, dashboard
 
 function showState(state) {
+  console.log(`Transitioning to state: ${state}`);
   currentState = state;
+  
+  // Check that state elements exist
+  if (!landingState || !importState || !mappingState || !dashboardState) {
+    console.error("State elements not found!", { landingState, importState, mappingState, dashboardState });
+    return;
+  }
   
   // Hide all states
   landingState.style.display = "none";
@@ -181,6 +162,7 @@ function showLanding() {
 }
 
 function showImport() {
+  console.log("Get Started button clicked, showing import state");
   showState("import");
 }
 
@@ -1048,6 +1030,40 @@ function renderRotationCalendar(data) {
 
 window.addEventListener("DOMContentLoaded", async () => {
   try {
+    // Assign state section elements now that DOM is ready
+    landingState = document.getElementById("landing-state");
+    importState = document.getElementById("import-state");
+    mappingState = document.getElementById("mapping-state");
+    dashboardState = document.getElementById("dashboard-state");
+    
+    // Assign landing elements
+    getStartedBtn = document.getElementById("get-started-btn");
+    
+    // Assign import elements
+    dropZone = document.getElementById("drop-zone");
+    importFileInput = document.getElementById("import-file-input");
+    uploadBtn = document.getElementById("upload-btn");
+    uploadProgress = document.getElementById("upload-progress");
+    backToLandingBtn = document.getElementById("back-to-landing");
+    continueToMappingBtn = document.getElementById("continue-to-mapping");
+    previewMileage = document.getElementById("preview-mileage");
+    previewShoes = document.getElementById("preview-shoes");
+    previewActivities = document.getElementById("preview-activities");
+    previewDateRange = document.getElementById("preview-date-range");
+    
+    // Assign mapping elements
+    detectedShoesList = document.getElementById("detected-shoes-list");
+    saveAndContinueMappingBtn = document.getElementById("save-and-continue-mapping");
+    skipMappingBtn = document.getElementById("skip-mapping");
+    
+    // Assign dashboard elements
+    dashboardTabs = document.querySelectorAll(".dashboard-tabs .tab-btn");
+    tabContents = document.querySelectorAll(".tab-content");
+    recsHeader = document.getElementById("recs-header");
+    recsContent = document.getElementById("recs-content");
+    recsIndicator = document.getElementById("recs-indicator");
+    resultsStep = document.getElementById("results-step");
+    
     await bootstrapSession();
     await loadCatalogShoes();
     await refreshWorkspace();
@@ -1148,9 +1164,19 @@ window.addEventListener("DOMContentLoaded", async () => {
     updateRecommendationsVisibility();
     
     // Check if user has data - if so, show dashboard directly
-    if (personalizeState.hasData) {
+    // Use multiple signals to detect if returning user has existing data
+    const hasExistingData = personalizeState.hasData || 
+                          personalizeState.rotation.length > 0 ||
+                          (personalizeState.profile && personalizeState.profile.summary) ||
+                          (personalizeState.visualizations && 
+                           (personalizeState.visualizations.efficiency_heatmap?.length > 0 ||
+                            personalizeState.visualizations.monthly_mileage?.length > 0));
+    
+    if (hasExistingData) {
+      console.log("Returning user with data detected, showing dashboard");
       showDashboard();
     } else {
+      console.log("New user or no data, showing landing page");
       showLanding();
     }
   } catch (error) {

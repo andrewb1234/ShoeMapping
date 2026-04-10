@@ -2019,6 +2019,13 @@ a {
   animation: fadeIn 0.4s ease;
 }
 
+/* Initially hide all states - JS will show the appropriate one */
+#import-state,
+#mapping-state,
+#dashboard-state {
+  display: none;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -2036,7 +2043,7 @@ a {
   font-family: var(--font-display);
   font-size: 3.5rem;
   font-weight: 700;
-  color: var(--text-primary);
+  color: var(--bg-canvas);
   margin-bottom: 24px;
   line-height: 1.1;
 }
@@ -2044,7 +2051,7 @@ a {
 .landing-subtitle {
   font-family: var(--font-body);
   font-size: 1.15rem;
-  color: var(--text-secondary);
+  color: var(--bg-canvas-warm);
   line-height: 1.6;
   margin-bottom: 40px;
 }
@@ -2095,7 +2102,7 @@ a {
   display: block;
   font-family: var(--font-heading);
   font-size: 0.95rem;
-  color: var(--text-primary);
+  color: var(--bg-canvas);
   margin-bottom: 6px;
 }
 
@@ -2103,7 +2110,7 @@ a {
   display: block;
   font-family: var(--font-body);
   font-size: 0.85rem;
-  color: var(--text-secondary);
+  color: var(--bg-canvas-warm);
   line-height: 1.4;
 }
 
