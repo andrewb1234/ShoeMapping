@@ -1574,3 +1574,177 @@ a {
   cursor: pointer;
   color: var(--ink-soft);
 }
+
+/* ============================================
+   PROGRESSIVE DISCLOSURE & ONBOARDING FLOW
+   Natural user guidance without numbered steps
+   ============================================ */
+
+/* Progress indicator - horizontal segments */
+.progress-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 2px solid var(--grid-line);
+  margin-top: 24px;
+}
+
+.progress-segment {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 12px 16px;
+  text-align: center;
+  border-right: 2px solid var(--grid-line);
+  background: var(--bg-canvas-warm);
+  color: var(--text-muted);
+}
+
+.progress-segment:last-child {
+  border-right: none;
+}
+
+.progress-segment.active {
+  background: var(--accent-tactical);
+  color: var(--bg-canvas);
+}
+
+.progress-segment.complete {
+  background: var(--bg-canvas);
+  color: var(--accent-tactical);
+}
+
+/* Collapsible panel headers */
+.panel-header.collapsible {
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.panel-header.collapsible:hover {
+  background: var(--bg-canvas-warm);
+}
+
+.collapse-indicator {
+  font-family: var(--font-mono);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--grid-line);
+  background: var(--bg-canvas);
+}
+
+.collapse-indicator.collapsed {
+  content: "+";
+}
+
+/* Collapsible content areas */
+.collapsible-content {
+  overflow: hidden;
+  transition: max-height 0.3s ease, opacity 0.3s ease;
+}
+
+.collapsible-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  display: none;
+}
+
+/* Panel summary - compact view when collapsed */
+.panel-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 24px;
+  background: var(--bg-canvas-warm);
+  border-top: 2px solid var(--grid-line);
+}
+
+.summary-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+}
+
+.summary-value {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+/* Completion badge - checkmark indicator */
+.completion-badge {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  font-weight: 700;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  background: var(--accent-tactical);
+  color: var(--bg-canvas);
+  border: 2px solid var(--accent-tactical);
+}
+
+/* Conditional visibility for recommendations */
+#results-step.hidden {
+  display: none;
+}
+
+/* Empty state styling for recommendations */
+#recommendation-results.empty-state {
+  display: grid;
+  place-items: center;
+  min-height: 120px;
+  border: 2px dashed var(--grid-line-dim);
+}
+
+/* Smooth transitions for panel state changes */
+.panel-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.panel-card.has-data {
+  border-color: var(--accent-tactical);
+}
+
+/* Highlight for active/completed sections */
+.panel-header .eyebrow.complete {
+  color: var(--accent-tactical);
+}
+
+/* Responsive adjustments */
+@media (max-width: 720px) {
+  .progress-bar {
+    grid-template-columns: 1fr;
+  }
+  
+  .progress-segment {
+    border-right: none;
+    border-bottom: 2px solid var(--grid-line);
+    text-align: left;
+    padding: 10px 16px;
+  }
+  
+  .progress-segment:last-child {
+    border-bottom: none;
+  }
+  
+  .panel-summary {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}

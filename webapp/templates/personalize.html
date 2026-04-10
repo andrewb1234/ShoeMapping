@@ -39,25 +39,27 @@
             <h1>Build recommendations around your current training and rotation.</h1>
           </div>
           <p class="support-copy">
-            Import history, add shoes, and compare recommendations by context. This page should always make it obvious what run history we have, what shoes we detected, and what signals are still missing.
+            Import history, add shoes, and compare recommendations by context. This page shows what run history we have, what shoes we detected, and what signals are still missing.
           </p>
           <div id="personalize-banner" class="message-banner info">Starting session…</div>
-          <ol class="stepper">
-            <li class="active">1. Choose source</li>
-            <li>2. Add data or shoes</li>
-            <li>3. Review profile</li>
-            <li>4. Recommendations and rotation</li>
-          </ol>
+          <div id="progress-indicator" class="progress-bar">
+            <div class="progress-segment" id="progress-data">Add data</div>
+            <div class="progress-segment" id="progress-profile">Review profile</div>
+            <div class="progress-segment" id="progress-recs">Get recommendations</div>
+          </div>
         </section>
 
         <section class="wizard-grid">
+          <!-- Data Source Panel - Collapsible -->
           <article class="panel-card" id="source-step">
-            <div class="panel-header">
+            <div class="panel-header collapsible" id="source-header" data-target="source-content">
               <div>
-                <p class="eyebrow">Step 1</p>
-                <h2>Choose how to start</h2>
+                <p class="eyebrow">Data source</p>
+                <h2 id="source-title">Choose how to add your running data</h2>
               </div>
+              <span class="collapse-indicator" id="source-indicator">−</span>
             </div>
+            <div id="source-content" class="collapsible-content">
             <div class="source-grid">
               <button class="source-card active" data-source="manual" type="button">
                 <strong>Manual</strong>
@@ -146,13 +148,21 @@
                 {% endif %}
               </div>
             </div>
+            </div>
+            <!-- Compact summary shown when collapsed -->
+            <div id="source-summary" class="panel-summary" style="display: none;">
+              <span class="summary-label">Data source:</span>
+              <span class="summary-value" id="source-summary-value">Manual entry</span>
+              <span class="completion-badge" id="source-completion">✓</span>
+            </div>
           </article>
 
+          <!-- Profile Panel -->
           <article class="panel-card" id="profile-step">
             <div class="panel-header">
               <div>
-                <p class="eyebrow">Step 3</p>
-                <h2>Review what we know about you</h2>
+                <p class="eyebrow">Your profile</p>
+                <h2>Review what we know about your training</h2>
               </div>
             </div>
             <div id="profile-summary" class="summary-grid"></div>
@@ -187,55 +197,7 @@
             </form>
           </article>
 
-          <article class="panel-card wide-card" id="results-step">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Step 4</p>
-                <h2>Recommendations and current rotation</h2>
-              </div>
-            </div>
-            <div class="tab-row" id="context-tabs">
-              <button class="tab-button active" data-context="easy" type="button">Easy</button>
-              <button class="tab-button" data-context="long" type="button">Long</button>
-              <button class="tab-button" data-context="workout" type="button">Workout</button>
-              <button class="tab-button" data-context="trail" type="button">Trail</button>
-              <button class="tab-button" data-context="replace" type="button">Replace next</button>
-            </div>
-            <div id="recommendation-meta" class="message-banner muted">Session starting…</div>
-            <div id="recommendation-results" class="card-grid empty-state">
-              <div class="empty-panel">
-                <p>Complete the first steps to generate personalized recommendations.</p>
-              </div>
-            </div>
-
-            <div class="panel-header section-break">
-              <div>
-                <p class="eyebrow">Your shoes</p>
-                <h2>Manual shoes and imported shoe detections</h2>
-              </div>
-            </div>
-            <p class="support-copy compact">Includes shoes you added manually and shoes we detected from imported activity history.</p>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Shoe</th>
-                    <th>Source</th>
-                    <th>Catalog status</th>
-                    <th>Mileage</th>
-                    <th>Health</th>
-                    <th>Recent uses</th>
-                  </tr>
-                </thead>
-                <tbody id="rotation-table-body">
-                  <tr>
-                    <td colspan="6">No shoes detected yet.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-
+          <!-- Running Data Visualizations - Shows user's activity insights -->
           <article class="panel-card wide-card" id="visualizations-step">
             <div class="panel-header">
               <div>
@@ -305,6 +267,60 @@
                   <span class="viz-subtitle">Weekly shoe usage heatmap</span>
                 </div>
                 <div class="viz-content" id="viz-calendar-content"></div>
+              </div>
+            </div>
+          </article>
+
+          <!-- Shoe Rotation Table - Always visible, shows user's shoes -->
+          <article class="panel-card wide-card" id="rotation-step">
+            <div class="panel-header">
+              <div>
+                <p class="eyebrow">Your shoes</p>
+                <h2>Manual shoes and imported shoe detections</h2>
+              </div>
+            </div>
+            <p class="support-copy compact">Includes shoes you added manually and shoes we detected from imported activity history.</p>
+            <div class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Shoe</th>
+                    <th>Source</th>
+                    <th>Catalog status</th>
+                    <th>Mileage</th>
+                    <th>Health</th>
+                    <th>Recent uses</th>
+                  </tr>
+                </thead>
+                <tbody id="rotation-table-body">
+                  <tr>
+                    <td colspan="6">No shoes detected yet. Add shoes manually or import activity data.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </article>
+
+          <!-- Recommendations - Collapsible, shown when user has data -->
+          <article class="panel-card wide-card" id="results-step" style="display: none;">
+            <div class="panel-header collapsible" id="recs-header" data-target="recs-content">
+              <div>
+                <p class="eyebrow">Recommendations</p>
+                <h2>Personalized shoe suggestions by context</h2>
+              </div>
+              <span class="collapse-indicator" id="recs-indicator">−</span>
+            </div>
+            <div id="recs-content" class="collapsible-content">
+              <div class="tab-row" id="context-tabs">
+                <button class="tab-button active" data-context="easy" type="button">Easy</button>
+                <button class="tab-button" data-context="long" type="button">Long</button>
+                <button class="tab-button" data-context="workout" type="button">Workout</button>
+                <button class="tab-button" data-context="trail" type="button">Trail</button>
+                <button class="tab-button" data-context="replace" type="button">Replace next</button>
+              </div>
+              <div id="recommendation-meta" class="message-banner muted">Add data to see recommendations.</div>
+              <div id="recommendation-results" class="card-grid">
+                <!-- Recommendations rendered here -->
               </div>
             </div>
           </article>

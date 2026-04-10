@@ -7,6 +7,9 @@ const personalizeState = {
   recommendations: {},
   catalogShoes: [],
   visualizations: null,
+  hasData: false,
+  sourceCollapsed: false,
+  recsCollapsed: false,
 };
 
 const banner = document.getElementById("personalize-banner");
@@ -36,6 +39,21 @@ const vizMonthlyContent = document.getElementById("viz-monthly-content");
 const vizMileageContent = document.getElementById("viz-mileage-content");
 const vizPaceContent = document.getElementById("viz-pace-content");
 const vizCalendarContent = document.getElementById("viz-calendar-content");
+
+// Progressive disclosure elements
+const sourceHeader = document.getElementById("source-header");
+const sourceContent = document.getElementById("source-content");
+const sourceSummary = document.getElementById("source-summary");
+const sourceIndicator = document.getElementById("source-indicator");
+const sourceTitle = document.getElementById("source-title");
+const sourceSummaryValue = document.getElementById("source-summary-value");
+const recsHeader = document.getElementById("recs-header");
+const recsContent = document.getElementById("recs-content");
+const recsIndicator = document.getElementById("recs-indicator");
+const resultsStep = document.getElementById("results-step");
+const progressData = document.getElementById("progress-data");
+const progressProfile = document.getElementById("progress-profile");
+const progressRecs = document.getElementById("progress-recs");
 
 function setBanner(message, level = "info") {
   banner.textContent = message;
@@ -103,6 +121,83 @@ function switchSource(nextSource) {
   manualPanel.classList.toggle("active", nextSource === "manual");
   uploadPanel.classList.toggle("active", nextSource === "csv" || nextSource === "gpx");
   stravaPanel.classList.toggle("active", nextSource === "strava");
+  updateSourceSummary();
+}
+
+// Progressive disclosure: collapsible panel toggle
+function togglePanel(panelId) {
+  if (panelId === "source") {
+    personalizeState.sourceCollapsed = !personalizeState.sourceCollapsed;
+    const isCollapsed = personalizeState.sourceCollapsed;
+    sourceContent.classList.toggle("collapsed", isCollapsed);
+    sourceSummary.style.display = isCollapsed ? "flex" : "none";
+    sourceIndicator.textContent = isCollapsed ? "+" : "−";
+    sourceHeader.classList.toggle("collapsed", isCollapsed);
+  } else if (panelId === "recs") {
+    personalizeState.recsCollapsed = !personalizeState.recsCollapsed;
+    const isCollapsed = personalizeState.recsCollapsed;
+    recsContent.classList.toggle("collapsed", isCollapsed);
+    recsIndicator.textContent = isCollapsed ? "+" : "−";
+    recsHeader.classList.toggle("collapsed", isCollapsed);
+  }
+}
+
+// Update source summary text based on selected source
+function updateSourceSummary() {
+  const sourceLabels = {
+    manual: "Manual entry",
+    csv: "CSV import",
+    gpx: "GPX upload",
+    strava: "Strava sync"
+  };
+  if (sourceSummaryValue) {
+    sourceSummaryValue.textContent = sourceLabels[personalizeState.currentSource] || "Manual entry";
+  }
+}
+
+// Collapse source panel after data is added/imported
+function collapseSourcePanel() {
+  if (!personalizeState.sourceCollapsed) {
+    togglePanel("source");
+  }
+}
+
+// Update progress indicator based on user state
+function updateProgressIndicator() {
+  const hasData = personalizeState.hasData;
+  const hasProfile = personalizeState.profile && personalizeState.profile.summary;
+  
+  // Reset all
+  progressData.classList.remove("active", "complete");
+  progressProfile.classList.remove("active", "complete");
+  progressRecs.classList.remove("active", "complete");
+  
+  if (!hasData) {
+    progressData.classList.add("active");
+  } else if (hasData && !hasProfile) {
+    progressData.classList.add("complete");
+    progressProfile.classList.add("active");
+  } else {
+    progressData.classList.add("complete");
+    progressProfile.classList.add("complete");
+    progressRecs.classList.add("active");
+  }
+}
+
+// Show/hide recommendations based on data availability
+function updateRecommendationsVisibility() {
+  const hasData = personalizeState.rotation.length > 0 || 
+                  (personalizeState.visualizations && 
+                   (personalizeState.visualizations.efficiency_heatmap?.length > 0 ||
+                    personalizeState.visualizations.monthly_mileage?.length > 0));
+  
+  personalizeState.hasData = hasData;
+  
+  if (resultsStep) {
+    resultsStep.style.display = hasData ? "block" : "none";
+  }
+  
+  updateProgressIndicator();
 }
 
 function renderProfile() {
@@ -300,6 +395,7 @@ async function loadRecommendations(context = personalizeState.activeContext) {
 async function refreshWorkspace() {
   await Promise.all([loadProfile(), loadRotation()]);
   renderProfile();
+  updateRecommendationsVisibility();
   await loadRecommendations(personalizeState.activeContext);
 }
 
@@ -332,6 +428,7 @@ manualForm.addEventListener("submit", async (event) => {
     setBanner("Added the shoe to your rotation and refreshed the profile.", "success");
     manualForm.reset();
     await refreshWorkspace();
+    collapseSourcePanel();
   } catch (error) {
     setBanner(error.message, "error");
   }
@@ -362,6 +459,7 @@ uploadForm.addEventListener("submit", async (event) => {
     );
     fileInput.value = "";
     await refreshWorkspace();
+    collapseSourcePanel();
   } catch (error) {
     setBanner(error.message, "error");
   }
@@ -567,6 +665,7 @@ async function loadVisualizations() {
     const payload = await apiFetch("/api/visualizations");
     personalizeState.visualizations = payload;
     renderVisualizations();
+    updateRecommendationsVisibility();
   } catch (error) {
     // Silently fail - visualizations are optional
     console.log("Visualizations not available:", error.message);
@@ -805,6 +904,17 @@ window.addEventListener("DOMContentLoaded", async () => {
     await loadCatalogShoes();
     await refreshWorkspace();
     await loadVisualizations();
+    
+    // Set up collapsible panel click handlers
+    if (sourceHeader) {
+      sourceHeader.addEventListener("click", () => togglePanel("source"));
+    }
+    if (recsHeader) {
+      recsHeader.addEventListener("click", () => togglePanel("recs"));
+    }
+    
+    // Initialize progress indicator
+    updateProgressIndicator();
   } catch (error) {
     setBanner(error.message, "error");
   }
