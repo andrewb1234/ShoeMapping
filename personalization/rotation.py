@@ -91,11 +91,11 @@ def _activity_usage(session: Session, user_id: str) -> Dict[str, dict]:
     recent_cutoff = now - timedelta(days=30)
     usage_by_identifier: Dict[str, dict] = {}
     rows = session.execute(
-        select(ActivityFeature.gear_ref, ActivityFeature.distance_m, ActivityRaw.started_at)
+        select(ActivityFeature.gear_ref, ActivityFeature.distance_m, ActivityFeature.avg_pace_mps, ActivityRaw.started_at)
         .join(ActivityRaw, ActivityRaw.id == ActivityFeature.activity_id)
         .where(ActivityRaw.user_id == user_id)
     ).all()
-    for gear_ref, distance_m, started_at in rows:
+    for gear_ref, distance_m, avg_pace_mps, started_at in rows:
         identifier = normalize_text(gear_ref)
         if not identifier:
             continue
@@ -106,12 +106,20 @@ def _activity_usage(session: Session, user_id: str) -> Dict[str, dict]:
                 "distance_km": 0.0,
                 "activity_count": 0,
                 "recent_uses_30d": 0,
+                "last_used_at": None,
+                "pace_readings": [],
             },
         )
         entry["distance_km"] += (distance_m or 0.0) / 1000.0
         entry["activity_count"] += 1
+        if avg_pace_mps:
+            entry["pace_readings"].append(avg_pace_mps)
         if started_at and started_at.tzinfo is None:
             started_at = started_at.replace(tzinfo=timezone.utc)
+        if started_at:
+            # Track the most recent activity date
+            if entry["last_used_at"] is None or started_at > entry["last_used_at"]:
+                entry["last_used_at"] = started_at
         if started_at and started_at >= recent_cutoff:
             entry["recent_uses_30d"] += 1
     return usage_by_identifier
@@ -146,6 +154,19 @@ def build_rotation_summary(
         matched_distance = sum(entry["distance_km"] for entry in matched_entries)
         activity_count = sum(entry["activity_count"] for entry in matched_entries)
         recent_uses = sum(entry["recent_uses_30d"] for entry in matched_entries)
+        # Calculate last used date and avg pace across all matched entries
+        last_used_at = None
+        all_pace_readings = []
+        for entry in matched_entries:
+            if entry["last_used_at"]:
+                if last_used_at is None or entry["last_used_at"] > last_used_at:
+                    last_used_at = entry["last_used_at"]
+            all_pace_readings.extend(entry.get("pace_readings", []))
+        # Convert avg pace from m/s to min/km
+        avg_pace_min_km = None
+        if all_pace_readings:
+            avg_pace_mps = sum(all_pace_readings) / len(all_pace_readings)
+            avg_pace_min_km = round(16.6667 / avg_pace_mps, 2) if avg_pace_mps > 0 else None
         for identifier in identifiers:
             if identifier in usage_by_identifier:
                 consumed_identifiers.add(identifier)
@@ -176,6 +197,8 @@ def build_rotation_summary(
                 "raw_import_name": matched_entries[0]["raw_import_name"] if matched_entries else None,
                 "activity_count": activity_count,
                 "recent_uses_30d": recent_uses,
+                "last_used_date": last_used_at.isoformat() if last_used_at else None,
+                "avg_pace": avg_pace_min_km,
             }
         )
 
@@ -210,6 +233,11 @@ def build_rotation_summary(
         retirement_target = default_retirement_target(terrain, ride_role) if catalog_shoe_id else None
         current_mileage = round(entry["distance_km"], 1)
         remaining, status = _status_for_mileage(current_mileage, retirement_target)
+        # Calculate avg pace for imported-only shoes
+        avg_pace_min_km = None
+        if entry.get("pace_readings"):
+            avg_pace_mps = sum(entry["pace_readings"]) / len(entry["pace_readings"])
+            avg_pace_min_km = round(16.6667 / avg_pace_mps, 2) if avg_pace_mps > 0 else None
         summaries.append(
             {
                 "id": f"imported:{identifier}",
@@ -229,6 +257,8 @@ def build_rotation_summary(
                 "raw_import_name": entry["raw_import_name"],
                 "activity_count": entry["activity_count"],
                 "recent_uses_30d": entry["recent_uses_30d"],
+                "last_used_date": entry["last_used_at"].isoformat() if entry.get("last_used_at") else None,
+                "avg_pace": avg_pace_min_km,
             }
         )
     return summaries

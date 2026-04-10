@@ -1311,20 +1311,6 @@ a {
   margin-top: 2px;
 }
 
-.efficiency-explanation {
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--bg-canvas-warm);
-  border-left: 3px solid var(--accent-tactical);
-}
-
-.efficiency-explanation small {
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
 /* Monthly Mileage Table */
 .monthly-table {
   width: 100%;
@@ -1506,45 +1492,7 @@ a {
   font-family: var(--font-mono);
   font-size: 0.75rem;
   color: var(--text-secondary);
-  min-width: 80px;
   text-align: right;
-}
-
-.pace-legend {
-  margin-bottom: 16px;
-  padding: 8px 12px;
-  background: var(--bg-canvas-warm);
-  border-left: 3px solid var(--accent-tactical);
-}
-
-.pace-legend small {
-  font-family: var(--font-body);
-  font-size: 0.8rem;
-  color: var(--text-secondary);
-  line-height: 1.4;
-}
-
-.pace-scale {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-}
-
-.pace-scale-start,
-.pace-scale-end {
-  font-family: var(--font-mono);
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  white-space: nowrap;
-}
-
-.pace-median-label {
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--accent-tactical);
-  text-align: right;
-  min-width: 80px;
 }
 
 /* Rotation Calendar */
@@ -2254,7 +2202,7 @@ a {
   margin-bottom: 24px;
 }
 
-.file-input {
+.file-input-overlay {
   position: absolute;
   top: 0;
   left: 0;
@@ -2262,6 +2210,17 @@ a {
   height: 100%;
   opacity: 0;
   cursor: pointer;
+  z-index: 1;
+}
+
+.upload-content {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.upload-content .upload-btn {
+  pointer-events: auto;
 }
 
 .progress-bar-simple {
@@ -2416,18 +2375,21 @@ a {
   font-family: var(--font-mono);
   font-size: 0.8rem;
   font-weight: 600;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
 .step-dot.complete {
   background: var(--accent-tactical);
   border-color: var(--accent-tactical);
   color: white;
+  box-shadow: 0 2px 4px rgba(45, 90, 61, 0.3);
 }
 
 .step-dot.active {
   border-color: var(--accent-tactical);
-  background: var(--bg-canvas);
+  background: var(--bg-primary);
   color: var(--accent-tactical);
+  box-shadow: 0 2px 4px rgba(45, 90, 61, 0.2);
 }
 
 .step-line {
@@ -2531,6 +2493,20 @@ a {
   width: 18px;
   height: 18px;
   color: var(--text-muted);
+}
+
+/* Brand filter dropdown (replaces search) */
+.match-filters {
+  margin-bottom: 12px;
+}
+
+.brand-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 2px solid var(--grid-line);
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  background: var(--bg-canvas);
 }
 
 .match-select {

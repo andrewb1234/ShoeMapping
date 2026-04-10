@@ -259,14 +259,17 @@ def parse_gpx_bytes(filename: str, payload: bytes) -> tuple[list[dict[str, Any]]
 def summarize_detected_shoes(
     normalized_activities: List[dict[str, Any]],
     catalog_service: ShoeCatalogService | None = None,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     catalog_service = catalog_service or ShoeCatalogService()
     catalog_identifier_map = build_catalog_identifier_map(catalog_service)
     seen_identifiers: set[str] = set()
     mapped = 0
     unmapped = 0
+    total_distance_km = 0.0
 
     for activity in normalized_activities:
+        distance_m = activity.get("distance_m") or 0
+        total_distance_km += distance_m / 1000.0
         identifier = normalize_text(activity.get("gear_ref"))
         if not identifier or identifier in seen_identifiers:
             continue
@@ -280,6 +283,7 @@ def summarize_detected_shoes(
         "detected_shoe_count": len(seen_identifiers),
         "mapped_shoe_count": mapped,
         "unmapped_shoe_count": unmapped,
+        "total_distance_km": round(total_distance_km, 1),
     }
 
 

@@ -364,10 +364,14 @@ function renderDetectedShoesForMapping() {
     return;
   }
   
+  // Get unique brands from catalog for the brand dropdown
+  const brands = [...new Set(personalizeState.catalogShoes.map(s => s.brand))].sort();
+  
   detectedShoesList.innerHTML = shoesToMap.map((shoe, index) => {
     const isDetected = shoe.source_kind === "detected";
     const displayName = shoe.raw_import_name || shoe.gear_name || shoe.custom_name || `Shoe ${index + 1}`;
     const matchedCatalog = shoe.mapped_catalog_shoe;
+    const currentBrand = matchedCatalog?.brand || '';
     
     return `
       <div class="mapping-card ${isDetected ? 'detected' : ''}" data-shoe-id="${shoe.id}">
@@ -395,21 +399,22 @@ function renderDetectedShoesForMapping() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
               </svg>
-              <span>Avg. Pace: ${shoe.avg_pace || 'N/A'}</span>
+              <span>Avg. Pace: ${shoe.avg_pace ? shoe.avg_pace.toFixed(2) + ' /km' : 'N/A'}</span>
             </div>
           </div>
         </div>
         <div class="match-section">
           <h4>MATCH TO CATALOG</h4>
-          <div class="match-search">
-            <input type="text" placeholder="Search official catalog..." class="catalog-search" data-shoe-id="${shoe.id}" />
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <path d="M21 21l-4.35-4.35"/>
-            </svg>
+          <div class="match-filters">
+            <select class="brand-select" data-shoe-id="${shoe.id}">
+              <option value="">Filter by brand...</option>
+              ${brands.map(brand => `
+                <option value="${brand}" ${brand === currentBrand ? 'selected' : ''}>${brand}</option>
+              `).join('')}
+            </select>
           </div>
           <select class="match-select" data-shoe-id="${shoe.id}">
-            <option value="">${matchedCatalog ? matchedCatalog.display_name : 'Select a match...'}</option>
+            <option value="">${matchedCatalog ? matchedCatalog.display_name : 'Select a shoe...'}</option>
             ${personalizeState.catalogShoes.map((catalogShoe) => `
               <option value="${catalogShoe.shoe_id}" ${matchedCatalog && matchedCatalog.shoe_id === catalogShoe.shoe_id ? 'selected' : ''}>
                 ${catalogShoe.display_name}
@@ -424,6 +429,29 @@ function renderDetectedShoesForMapping() {
       </div>
     `;
   }).join("");
+  
+  // Add event listeners for brand filtering
+  detectedShoesList.querySelectorAll(".brand-select").forEach((select) => {
+    select.addEventListener("change", (e) => {
+      const shoeId = e.target.dataset.shoeId;
+      const brand = e.target.value;
+      const shoeSelect = detectedShoesList.querySelector(`select.match-select[data-shoe-id="${shoeId}"]`);
+      if (shoeSelect) {
+        // Filter options by brand
+        const allShoes = personalizeState.catalogShoes;
+        const filteredShoes = brand ? allShoes.filter(s => s.brand === brand) : allShoes;
+        shoeSelect.innerHTML = `
+          <option value="">Select a shoe...</option>
+          ${filteredShoes.map((catalogShoe) => `
+            <option value="${catalogShoe.shoe_id}">
+              ${catalogShoe.display_name}
+            </option>
+          `).join("")}
+          <option value="clear">Clear / Manual Entry</option>
+        `;
+      }
+    });
+  });
   
   // Add event listeners for mapping
   detectedShoesList.querySelectorAll(".match-btn").forEach((btn) => {
@@ -848,9 +876,6 @@ function renderEfficiencyHeatmap(data) {
   const maxEfficiency = Math.max(...data.map(d => d.avg_efficiency), 6);
   
   vizEfficiencyContent.innerHTML = `
-    <div class="efficiency-explanation">
-      <small>HR-Adjusted Pace: Lower is better (heartbeats per meter). Accounts for terrain and effort.</small>
-    </div>
     <div class="efficiency-bar-container">
       ${data.map(shoe => {
         const pct = Math.min((shoe.avg_efficiency / maxEfficiency) * 100, 100);
@@ -952,19 +977,9 @@ function renderShoeMileage(data) {
   `;
 }
 
-function formatPace(minutesPerKm) {
-  // Convert decimal minutes to MM:SS format
-  const mins = Math.floor(minutesPerKm);
-  const secs = Math.round((minutesPerKm - mins) * 60);
-  return `${mins}:${secs.toString().padStart(2, '0')}`;
-}
-
 function renderPaceDistribution(data) {
   vizPaceContent.innerHTML = `
     <div class="pace-distribution">
-      <div class="pace-legend">
-        <small>Box shows middle 50% of runs. Line is median pace. Faster (lower) pace is better.</small>
-      </div>
       ${data.map(shoe => `
         <div class="pace-shoe-block">
           <div class="pace-shoe-name">${shoe.gear_ref}</div>
@@ -984,15 +999,11 @@ function renderPaceDistribution(data) {
             return `
               <div class="pace-context-row">
                 <div class="pace-context-label">${ctx.run_context}</div>
-                <div class="pace-scale">
-                  <span class="pace-scale-start">${formatPace(max)}</span>
-                  <div class="pace-boxplot">
-                    <div class="pace-box" style="left: ${left}%; width: ${width}%"></div>
-                    <div class="pace-median" style="left: ${medianPos}%"></div>
-                  </div>
-                  <span class="pace-scale-end">${formatPace(min)}</span>
+                <div class="pace-boxplot">
+                  <div class="pace-box" style="left: ${left}%; width: ${width}%"></div>
+                  <div class="pace-median" style="left: ${medianPos}%"></div>
                 </div>
-                <div class="pace-median-label">med ${formatPace(median)}</div>
+                <div class="pace-range">${min.toFixed(1)}-${max.toFixed(1)} /km</div>
               </div>
             `;
           }).join("")}
