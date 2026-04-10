@@ -281,9 +281,11 @@ function renderRotation() {
         <td>${mappingStatusLabel(shoe.mapping_status)}</td>
         <td>${shoe.current_mileage_km.toFixed(1)} km</td>
         <td>
-          <span class="status-badge">${statusLabel(shoe)}</span>
-          <button class="small-button edit-target-btn" data-shoe-id="${shoe.id}" data-current-target="${shoe.retirement_target_km || ''}" title="Edit retirement target">✎</button>
-          ${shoe.mapping_status === "unmapped" ? `<button class="small-button map-shoe-btn" data-shoe-id="${shoe.id}" data-shoe-name="${shoe.raw_import_name || shoe.display_name}" title="Map to catalog shoe">🔗</button>` : ""}
+          <div class="health-cell">
+            <span class="status-badge">${statusLabel(shoe)}</span>
+            <button class="small-button edit-target-btn" data-shoe-id="${shoe.id}" data-current-target="${shoe.retirement_target_km || ''}" title="Edit retirement target">✎</button>
+            ${shoe.mapping_status === "unmapped" ? `<button class="small-button map-shoe-btn" data-shoe-id="${shoe.id}" data-shoe-name="${shoe.raw_import_name || shoe.display_name}" title="Map to catalog shoe">🔗</button>` : ""}
+          </div>
         </td>
         <td>${shoe.recent_uses_30d || 0}</td>
       </tr>
@@ -883,6 +885,7 @@ function renderEfficiencyHeatmap(data) {
   const maxEfficiency = Math.max(...data.map(d => d.avg_efficiency), 6);
   
   vizEfficiencyContent.innerHTML = `
+    <p class="viz-description">HR-adjusted pace — lower means faster at less effort</p>
     <div class="efficiency-bar-container">
       ${data.map(shoe => {
         const pct = Math.min((shoe.avg_efficiency / maxEfficiency) * 100, 100);
@@ -1103,6 +1106,27 @@ window.addEventListener("DOMContentLoaded", async () => {
       skipMappingBtn.addEventListener("click", showDashboard);
     }
     
+    // Strava help popover
+    const stravaHelpBtn = document.getElementById("strava-help-btn");
+    const stravaHelpPopover = document.getElementById("strava-help-popover");
+    const stravaHelpClose = document.getElementById("strava-help-close");
+    if (stravaHelpBtn && stravaHelpPopover) {
+      stravaHelpBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        stravaHelpPopover.classList.toggle("is-visible");
+      });
+      if (stravaHelpClose) {
+        stravaHelpClose.addEventListener("click", () => {
+          stravaHelpPopover.classList.remove("is-visible");
+        });
+      }
+      document.addEventListener("click", (e) => {
+        if (!stravaHelpPopover.contains(e.target) && e.target !== stravaHelpBtn) {
+          stravaHelpPopover.classList.remove("is-visible");
+        }
+      });
+    }
+
     // Dashboard tabs
     dashboardTabs.forEach((tab) => {
       tab.addEventListener("click", () => {
