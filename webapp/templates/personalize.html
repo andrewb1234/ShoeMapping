@@ -23,7 +23,7 @@
           <span class="brand-mark">SM</span>
           <span class="brand-copy">
             <strong>Shoe Mapping</strong>
-            <span>Personalization runtime</span>
+            <span>Personalize your recommendations</span>
           </span>
         </a>
         <nav class="top-nav">
@@ -32,364 +32,336 @@
         </nav>
       </header>
 
-      <main class="page-grid">
-        <!-- Hero section for new users - fades out as they scroll -->
-        <section id="hero-section" class="hero-surface scroll-section" data-stage="new-user">
-          <div class="hero-content">
-            <p class="hero-eyebrow">Welcome to your personalized shoe advisor</p>
-            <h1 class="hero-title">Let's analyze your training data</h1>
-            <p class="hero-subtitle">
-              Import your running history to get personalized shoe recommendations based on your actual training patterns.
+      <main class="personalize-container">
+        <div id="personalize-banner" class="message-banner info">Starting session…</div>
+
+        <!-- STATE 1: Landing Page (matches image 1) -->
+        <section id="landing-state" class="state-section">
+          <div class="landing-hero">
+            <h1 class="landing-title">Optimize Your Rotation</h1>
+            <p class="landing-subtitle">
+              Data-driven running shoe recommendations built around your current training and rotation. 
+              Unlock your potential with personalized insights.
             </p>
+            <button class="cta-primary landing-cta" id="get-started-btn">Get Started</button>
           </div>
-          <div class="hero-actions">
-            <button class="hero-card" data-hero-action="manual">
-              <span class="hero-icon">✎</span>
-              <strong>Manual entry</strong>
-              <span>Add shoes one by one with mileage</span>
-            </button>
-            <button class="hero-card" data-hero-action="csv">
-              <span class="hero-icon">📄</span>
-              <strong>CSV import</strong>
-              <span>Upload activity exports from Strava, Garmin, etc.</span>
-            </button>
-            <button class="hero-card" data-hero-action="gpx">
-              <span class="hero-icon">🗺</span>
-              <strong>GPX files</strong>
-              <span>Import route files with pace & elevation</span>
-            </button>
-            {% if strava_enabled %}
-            <button class="hero-card" data-hero-action="strava">
-              <span class="hero-icon">⬡</span>
-              <strong>Strava sync</strong>
-              <span>Connect for automatic updates</span>
-            </button>
-            {% endif %}
-          </div>
-          <div class="hero-scroll-hint">
-            <span>Scroll to explore all features →</span>
+          
+          <div class="steps-flow">
+            <div class="step-item">
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                  <polyline points="7,10 12,15 17,10"/>
+                  <line x1="12" y1="15" x2="12" y2="3"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <strong>Step 1: Import Data</strong>
+                <span>Connect Strava or upload GPX/TCX files.</span>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item">
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M9 11l3 3L22 4"/>
+                  <path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <strong>Step 2: Analyze Activity</strong>
+                <span>We detect shoes, mileage, and wear patterns.</span>
+              </div>
+            </div>
+            <div class="step-connector"></div>
+            <div class="step-item">
+              <div class="step-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <rect x="3" y="4" width="18" height="18" rx="2"/>
+                  <line x1="16" y1="2" x2="16" y2="6"/>
+                  <line x1="8" y1="2" x2="8" y2="6"/>
+                  <line x1="3" y1="10" x2="21" y2="10"/>
+                </svg>
+              </div>
+              <div class="step-content">
+                <strong>Step 3: Get Recommendations</strong>
+                <span>Discover the perfect shoes to complete your rotation.</span>
+              </div>
+            </div>
           </div>
         </section>
 
-        <!-- Progress indicator - sticky top bar -->
-        <div id="progress-sticky" class="progress-sticky">
-          <div class="progress-bar">
-            <div class="progress-segment" id="progress-data">Add data</div>
-            <div class="progress-segment" id="progress-profile">Review profile</div>
-            <div class="progress-segment" id="progress-recs">Get recommendations</div>
+        <!-- STATE 2: Import Onboarding (matches image 2) -->
+        <section id="import-state" class="state-section" style="display: none;">
+          <div class="import-layout">
+            <!-- Left: Drag & Drop Upload -->
+            <div class="import-panel upload-panel">
+              <div class="panel-header-simple">
+                <h2>Data Import Onboarding</h2>
+                <p>Import your running history to get personalized shoe recommendations and insights.</p>
+              </div>
+              
+              <div class="upload-zone" id="drop-zone">
+                <div class="upload-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17,8 12,3 7,8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <p class="upload-text">Drag and drop CSV or GPX files here<br/>or click to select files</p>
+                <input type="file" id="import-file-input" class="file-input" accept=".csv,.gpx" />
+                <div class="progress-bar-simple" id="upload-progress" style="display: none;">
+                  <div class="progress-fill"></div>
+                  <span class="progress-text">0%</span>
+                </div>
+                <button class="cta-primary upload-btn" id="upload-btn">Upload File</button>
+                <p class="upload-hint">Supported: CSV, GPX</p>
+              </div>
+
+              <div class="source-options">
+                <button class="source-pill" data-source="manual">Manual Entry</button>
+                <button class="source-pill" data-source="strava" {% if not strava_enabled %}disabled{% endif %}>Connect Strava</button>
+              </div>
+            </div>
+
+            <!-- Right: Quick Insights Preview -->
+            <div class="import-panel preview-panel">
+              <div class="preview-header">
+                <h3>Quick Insights (Preview)</h3>
+              </div>
+              <div class="preview-content">
+                <div class="preview-stat">
+                  <span class="stat-label">Total Mileage Found</span>
+                  <span class="stat-value" id="preview-mileage">0 km</span>
+                </div>
+                <div class="preview-stat">
+                  <span class="stat-label">Number of Shoes Detected</span>
+                  <span class="stat-value" id="preview-shoes">0</span>
+                </div>
+                <div class="preview-stat">
+                  <span class="stat-label">Activities Found</span>
+                  <span class="stat-value" id="preview-activities">0</span>
+                </div>
+                <div class="preview-stat">
+                  <span class="stat-label">Date Range</span>
+                  <span class="stat-value" id="preview-date-range">N/A</span>
+                </div>
+                <div class="preview-note">
+                  <p>Insights will populate as data is parsed.</p>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
 
-        <div id="personalize-banner" class="message-banner info">Starting session…</div>
+          <div class="state-navigation">
+            <button class="cta-secondary" id="back-to-landing">← Back</button>
+            <button class="cta-primary" id="continue-to-mapping" disabled>Continue →</button>
+          </div>
+        </section>
 
-        <section class="wizard-grid" id="onboarding-flow">
-          <!-- Data Source Panel - scroll-triggered collapse -->
-          <article class="panel-card scroll-section onboarding-card" id="source-step" data-stage="add-data">
-            <div class="panel-header collapsible" id="source-header" data-target="source-content">
-              <div>
-                <p class="eyebrow">Data source</p>
-                <h2 id="source-title">Choose how to add your running data</h2>
+        <!-- STATE 3: Shoe Mapping (matches image 3) -->
+        <section id="mapping-state" class="state-section" style="display: none;">
+          <div class="mapping-header">
+            <div class="step-indicator">
+              <span class="step-dot complete">1</span>
+              <span class="step-line"></span>
+              <span class="step-dot complete">2</span>
+              <span class="step-line active"></span>
+              <span class="step-dot active">3</span>
+              <span class="step-line"></span>
+              <span class="step-dot">4</span>
+            </div>
+            <h2>Step 3 of 4: Shoe Catalog Mapping</h2>
+          </div>
+
+          <div class="mapping-list" id="detected-shoes-list">
+            <!-- Detected shoes rendered here by JS -->
+          </div>
+
+          <div class="mapping-actions">
+            <button class="cta-primary" id="save-and-continue-mapping">Save & Continue</button>
+            <button class="text-link" id="skip-mapping">Skip or Map Later</button>
+          </div>
+        </section>
+
+        <!-- STATE 4: Dashboard with Tabs -->
+        <section id="dashboard-state" class="state-section" style="display: none;">
+          <div class="dashboard-tabs">
+            <button class="tab-btn active" data-tab="training">Training Data</button>
+            <button class="tab-btn" data-tab="profile">Profile Adjustments</button>
+            <button class="tab-btn" data-tab="import">Re-import Data</button>
+          </div>
+
+          <!-- Training Data Tab -->
+          <div class="tab-content active" id="tab-training">
+            <div class="dashboard-grid">
+              <!-- Visualizations -->
+              <article class="panel-card wide-card">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Your training data</p>
+                    <h2>Running insights from imported activities</h2>
+                  </div>
+                </div>
+                <p class="support-copy compact">Visualizations derived from your CSV imports.</p>
+                <div id="viz-container" class="viz-grid">
+                  <div class="empty-panel" id="viz-empty-state">
+                    <p>Import activity data to see visualizations.</p>
+                  </div>
+                  <div class="viz-card" id="viz-efficiency" style="display: none;">
+                    <div class="viz-header"><h3>Shoe Efficiency</h3></div>
+                    <div class="viz-content" id="viz-efficiency-content"></div>
+                  </div>
+                  <div class="viz-card" id="viz-monthly" style="display: none;">
+                    <div class="viz-header"><h3>Monthly Mileage</h3></div>
+                    <div class="viz-content" id="viz-monthly-content"></div>
+                  </div>
+                  <div class="viz-card" id="viz-mileage" style="display: none;">
+                    <div class="viz-header"><h3>Shoe Mileage Tracker</h3></div>
+                    <div class="viz-content" id="viz-mileage-content"></div>
+                  </div>
+                  <div class="viz-card" id="viz-pace" style="display: none;">
+                    <div class="viz-header"><h3>Pace Distribution</h3></div>
+                    <div class="viz-content" id="viz-pace-content"></div>
+                  </div>
+                  <div class="viz-card" id="viz-calendar" style="display: none;">
+                    <div class="viz-header"><h3>Rotation Calendar</h3></div>
+                    <div class="viz-content" id="viz-calendar-content"></div>
+                  </div>
+                </div>
+              </article>
+
+              <!-- Shoe Rotation -->
+              <article class="panel-card wide-card">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Your shoes</p>
+                    <h2>Current rotation</h2>
+                  </div>
+                </div>
+                <div class="table-wrap">
+                  <table class="data-table">
+                    <thead>
+                      <tr><th>Shoe</th><th>Source</th><th>Mileage</th><th>Health</th></tr>
+                    </thead>
+                    <tbody id="rotation-table-body">
+                      <tr><td colspan="4">No shoes yet. Import or add manually.</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </article>
+
+              <!-- Recommendations -->
+              <article class="panel-card wide-card">
+                <div class="panel-header">
+                  <div>
+                    <p class="eyebrow">Recommendations</p>
+                    <h2>Personalized shoe suggestions</h2>
+                  </div>
+                </div>
+                <div class="tab-row" id="context-tabs">
+                  <button class="tab-button active" data-context="easy">Easy</button>
+                  <button class="tab-button" data-context="long">Long</button>
+                  <button class="tab-button" data-context="workout">Workout</button>
+                  <button class="tab-button" data-context="trail">Trail</button>
+                  <button class="tab-button" data-context="replace">Replace</button>
+                </div>
+                <div id="recommendation-meta" class="message-banner muted">Add data to see recommendations.</div>
+                <div id="recommendation-results" class="card-grid"></div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Profile Tab -->
+          <div class="tab-content" id="tab-profile" style="display: none;">
+            <article class="panel-card wide-card">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Your profile</p>
+                  <h2>Review and adjust your training data</h2>
+                </div>
               </div>
-              <span class="collapse-indicator" id="source-indicator">−</span>
-            </div>
-            <div id="source-content" class="collapsible-content">
-              <div class="source-grid">
-                <button class="source-card active" data-source="manual" type="button">
-                  <strong>Manual</strong>
-                  <span>Add owned shoes and baseline mileage yourself.</span>
-                </button>
-                <button class="source-card" data-source="csv" type="button">
-                  <strong>CSV import</strong>
-                  <span>Bring in exported activity logs without authorizing an API.</span>
-                </button>
-                <button class="source-card" data-source="gpx" type="button">
-                  <strong>GPX upload</strong>
-                  <span>Use route files for distance, time, and elevation context.</span>
-                </button>
-                <button class="source-card" data-source="strava" type="button" {% if not strava_enabled %}disabled{% endif %}>
-                  <strong>Strava sync</strong>
-                  <span>{% if strava_enabled %}Connect your account for ongoing sync.{% else %}Hidden until Strava credentials are configured.{% endif %}</span>
-                </button>
-              </div>
-            </div>
-            <!-- Compact summary shown when collapsed -->
-            <div id="source-summary" class="panel-summary" style="display: none;">
-              <span class="summary-label">Data source:</span>
-              <span class="summary-value" id="source-summary-value">Manual entry</span>
-              <span class="completion-badge" id="source-completion">✓</span>
-            </div>
-          </article>
-
-          <!-- Data Entry Panel - scroll-triggered collapse -->
-          <article class="panel-card scroll-section onboarding-card" id="ingest-step" data-stage="add-data">
-            <div class="panel-header collapsible" id="ingest-header" data-target="ingest-content">
-              <div>
-                <p class="eyebrow">Enter your data</p>
-                <h2>Add shoes or import activities</h2>
-              </div>
-              <span class="collapse-indicator" id="ingest-indicator">−</span>
-            </div>
-            <div id="ingest-content" class="collapsible-content">
-
-            <div id="manual-panel" class="source-panel active">
-              <form id="manual-shoe-form" class="form-grid">
-                <label class="field field-wide">
-                  <span>Catalog shoe</span>
-                  <select id="manual-catalog-shoe">
-                    <option value="">Choose a catalog shoe</option>
+              <div id="profile-summary" class="summary-grid"></div>
+              <form id="profile-form" class="form-grid">
+                <label class="field">
+                  <span>Preferred terrain</span>
+                  <select id="profile-preferred-terrain">
+                    <option value="">Use derived preference</option>
+                    <option value="road">Road</option>
+                    <option value="trail">Trail</option>
                   </select>
                 </label>
                 <label class="field">
-                  <span>Custom brand</span>
-                  <input id="manual-brand" type="text" placeholder="Optional if catalog shoe selected" />
-                </label>
-                <label class="field">
-                  <span>Custom name</span>
-                  <input id="manual-name" type="text" placeholder="Optional if catalog shoe selected" />
-                </label>
-                <label class="field">
-                  <span>Starting mileage (km)</span>
-                  <input id="manual-start-mileage" type="number" min="0" step="1" value="0" />
-                </label>
-                <label class="field">
-                  <span>Retirement target (km)</span>
-                  <input id="manual-retirement-target" type="number" min="0" step="10" placeholder="Auto if blank" />
+                  <span>Weekly mileage override (km)</span>
+                  <input id="profile-weekly-override" type="number" min="0" step="1" />
                 </label>
                 <label class="field field-wide">
-                  <span>Notes</span>
-                  <textarea id="manual-notes" rows="3" placeholder="Optional notes about comfort, purpose, or wear"></textarea>
+                  <span>Prioritize these contexts</span>
+                  <div class="checkbox-row">
+                    <label><input type="checkbox" value="easy" /> Easy</label>
+                    <label><input type="checkbox" value="long" /> Long</label>
+                    <label><input type="checkbox" value="workout" /> Workout</label>
+                    <label><input type="checkbox" value="trail" /> Trail</label>
+                    <label><input type="checkbox" value="replace" /> Replace next</label>
+                  </div>
                 </label>
-                <button class="cta-primary" type="submit">Add shoe to rotation</button>
+                <label class="field field-wide">
+                  <span>Profile notes</span>
+                  <textarea id="profile-notes" rows="3" placeholder="Add goals or context"></textarea>
+                </label>
+                <button class="cta-primary" type="submit">Save profile adjustments</button>
               </form>
-            </div>
+            </article>
+          </div>
 
-            <div id="upload-panel" class="source-panel">
-              <form id="upload-form" class="form-grid">
+          <!-- Re-import Tab -->
+          <div class="tab-content" id="tab-import" style="display: none;">
+            <article class="panel-card wide-card">
+              <div class="panel-header">
+                <div>
+                  <p class="eyebrow">Update your data</p>
+                  <h2>Import more activities</h2>
+                </div>
+              </div>
+              <p class="support-copy">Add more running data to improve your recommendations.</p>
+              <form id="reimport-form" class="form-grid">
                 <label class="field field-wide">
                   <span>Choose CSV or GPX file</span>
-                  <input id="import-file" type="file" accept=".csv,.gpx" />
+                  <input id="reimport-file" type="file" accept=".csv,.gpx" />
                 </label>
-                <p class="support-copy compact">
-                  CSV import uses best-effort column matching. GPX import captures route, distance, timing, and elevation, with heart rate or cadence only when the file includes those extensions.
-                </p>
-                <button class="cta-primary" type="submit">Import file</button>
+                <button class="cta-primary" type="submit">Import Additional Data</button>
               </form>
-            </div>
-
-            <div id="strava-panel" class="source-panel">
-              <div class="info-block">
-                <p class="support-copy">
-                  Strava sync is optional and only requests the minimum read scopes by default. Private activity access remains opt-in.
-                </p>
-                {% if strava_enabled %}
-                <div class="button-row">
-                  <a class="cta-primary" href="/auth/strava/start">Connect Strava</a>
-                  <a class="cta-secondary" href="/auth/strava/start?include_private=true">Connect with private activities</a>
-                </div>
-                {% else %}
-                <p class="message-banner muted">Strava UI is disabled until credentials and redirect URIs are configured.</p>
-                {% endif %}
+              <div class="manual-add-section">
+                <h3>Or add a shoe manually</h3>
+                <form id="manual-shoe-form" class="form-grid">
+                  <label class="field field-wide">
+                    <span>Catalog shoe</span>
+                    <select id="manual-catalog-shoe">
+                      <option value="">Choose a catalog shoe</option>
+                    </select>
+                  </label>
+                  <label class="field">
+                    <span>Custom brand</span>
+                    <input id="manual-brand" type="text" placeholder="Optional" />
+                  </label>
+                  <label class="field">
+                    <span>Custom name</span>
+                    <input id="manual-name" type="text" placeholder="Optional" />
+                  </label>
+                  <label class="field">
+                    <span>Starting mileage (km)</span>
+                    <input id="manual-start-mileage" type="number" min="0" value="0" />
+                  </label>
+                  <label class="field">
+                    <span>Retirement target (km)</span>
+                    <input id="manual-retirement-target" type="number" min="0" placeholder="Auto if blank" />
+                  </label>
+                  <button class="cta-secondary" type="submit">Add Shoe</button>
+                </form>
               </div>
-            </div>
-            </div>
-            <!-- Ingest step summary shown when collapsed -->
-            <div id="ingest-summary" class="panel-summary" style="display: none;">
-              <span class="summary-label">Data added:</span>
-              <span class="summary-value" id="ingest-summary-value">Ready for analysis</span>
-              <span class="completion-badge" id="ingest-completion">✓</span>
-            </div>
-          </article>
-
-          <!-- Profile Panel - scroll-triggered collapse -->
-          <article class="panel-card scroll-section onboarding-card" id="profile-step" data-stage="review-profile">
-            <div class="panel-header collapsible" id="profile-header" data-target="profile-content">
-              <div>
-                <p class="eyebrow">Your profile</p>
-                <h2>Review your training data</h2>
-              </div>
-              <span class="collapse-indicator" id="profile-indicator">−</span>
-            </div>
-            <div id="profile-content" class="collapsible-content">
-              <div id="profile-summary" class="summary-grid"></div>
-              <form id="profile-form" class="form-grid">
-              <label class="field">
-                <span>Preferred terrain</span>
-                <select id="profile-preferred-terrain">
-                  <option value="">Use derived preference</option>
-                  <option value="road">Road</option>
-                  <option value="trail">Trail</option>
-                </select>
-              </label>
-              <label class="field">
-                <span>Weekly mileage override (km)</span>
-                <input id="profile-weekly-override" type="number" min="0" step="1" />
-              </label>
-              <label class="field field-wide">
-                <span>Prioritize these contexts</span>
-                <div class="checkbox-row">
-                  <label><input type="checkbox" value="easy" /> Easy</label>
-                  <label><input type="checkbox" value="long" /> Long</label>
-                  <label><input type="checkbox" value="workout" /> Workout</label>
-                  <label><input type="checkbox" value="trail" /> Trail</label>
-                  <label><input type="checkbox" value="replace" /> Replace next</label>
-                </div>
-              </label>
-              <label class="field field-wide">
-                <span>Profile notes</span>
-                <textarea id="profile-notes" rows="3" placeholder="Add goals or context you want the scoring system to reflect"></textarea>
-              </label>
-              <button class="cta-primary" type="submit">Save profile adjustments</button>
-            </form>
-            </div>
-            <!-- Profile summary shown when collapsed -->
-            <div id="profile-summary-compact" class="panel-summary" style="display: none;">
-              <span class="summary-label">Profile:</span>
-              <span class="summary-value" id="profile-summary-value">Training data analyzed</span>
-              <span class="completion-badge" id="profile-completion">✓</span>
-            </div>
-          </article>
-
-          <!-- Running Data Visualizations - Shows user's activity insights -->
-          <article class="panel-card wide-card" id="visualizations-step">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Your training data</p>
-                <h2>Running insights from imported activities</h2>
-              </div>
-            </div>
-            <p class="support-copy compact">Visualizations derived from your CSV imports. These help you spot patterns like efficiency by shoe, mileage trends, and rotation habits.</p>
-            
-            <div id="viz-container" class="viz-grid">
-              <div class="empty-panel" id="viz-empty-state">
-                <p>Import activity data to see visualizations.</p>
-              </div>
-              
-              <!-- Shoe Efficiency Heatmap -->
-              <div class="viz-card" id="viz-efficiency" style="display: none;">
-                <div class="viz-header">
-                  <h3>Shoe Efficiency</h3>
-                  <span class="viz-subtitle">HR-adjusted pace (lower is better)</span>
-                </div>
-                <div class="viz-content" id="viz-efficiency-content"></div>
-                <div class="viz-legend">
-                  <span class="legend-item excellent">Excellent</span>
-                  <span class="legend-item good">Good</span>
-                  <span class="legend-item fair">Fair</span>
-                  <span class="legend-item needs-attention">Needs attention</span>
-                </div>
-              </div>
-
-              <!-- Monthly Mileage Trend -->
-              <div class="viz-card" id="viz-monthly" style="display: none;">
-                <div class="viz-header">
-                  <h3>Monthly Mileage</h3>
-                  <span class="viz-subtitle">Distance and pace trends by month</span>
-                </div>
-                <div class="viz-content" id="viz-monthly-content"></div>
-              </div>
-
-              <!-- Shoe Mileage Tracker -->
-              <div class="viz-card" id="viz-mileage" style="display: none;">
-                <div class="viz-header">
-                  <h3>Shoe Mileage Tracker</h3>
-                  <span class="viz-subtitle">Cumulative distance with retirement zones</span>
-                </div>
-                <div class="viz-content" id="viz-mileage-content"></div>
-                <div class="viz-legend">
-                  <span class="legend-item healthy">Healthy</span>
-                  <span class="legend-item warning">Warning (70%+)</span>
-                  <span class="legend-item critical">Critical (85%+)</span>
-                  <span class="legend-item replace-now">Replace now (100%+)</span>
-                </div>
-              </div>
-
-              <!-- Pace Distribution -->
-              <div class="viz-card" id="viz-pace" style="display: none;">
-                <div class="viz-header">
-                  <h3>Pace Distribution</h3>
-                  <span class="viz-subtitle">Pace ranges by run type and shoe</span>
-                </div>
-                <div class="viz-content" id="viz-pace-content"></div>
-              </div>
-
-              <!-- Rotation Calendar -->
-              <div class="viz-card" id="viz-calendar" style="display: none;">
-                <div class="viz-header">
-                  <h3>Rotation Calendar</h3>
-                  <span class="viz-subtitle">Weekly shoe usage heatmap</span>
-                </div>
-                <div class="viz-content" id="viz-calendar-content"></div>
-              </div>
-            </div>
-          </article>
-
-          <!-- Shoe Rotation Table - Always visible, shows user's shoes -->
-          <article class="panel-card wide-card" id="rotation-step">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Your shoes</p>
-                <h2>Manual shoes and imported shoe detections</h2>
-              </div>
-            </div>
-            <p class="support-copy compact">Includes shoes you added manually and shoes we detected from imported activity history.</p>
-            <div class="table-wrap">
-              <table class="data-table">
-                <thead>
-                  <tr>
-                    <th>Shoe</th>
-                    <th>Source</th>
-                    <th>Catalog status</th>
-                    <th>Mileage</th>
-                    <th>Health</th>
-                    <th>Recent uses</th>
-                  </tr>
-                </thead>
-                <tbody id="rotation-table-body">
-                  <tr>
-                    <td colspan="6">No shoes detected yet. Add shoes manually or import activity data.</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </article>
-
-          <!-- Shoe Mapping Section - Prompt users to map unmapped shoes -->
-          <article class="panel-card wide-card" id="shoe-mapping-step" style="display: none;">
-            <div class="panel-header">
-              <div>
-                <p class="eyebrow">Catalog matching</p>
-                <h2>Map your shoes to our catalog</h2>
-              </div>
-            </div>
-            <p class="support-copy compact">Match your imported shoes to catalog entries for better recommendations and detailed specs.</p>
-            <div id="unmapped-shoes-container" class="unmapped-shoes-grid">
-              <!-- Unmapped shoes will be rendered here by JS -->
-            </div>
-          </article>
-
-          <!-- Recommendations - Collapsible, shown when user has data -->
-          <article class="panel-card wide-card" id="results-step" style="display: none;">
-            <div class="panel-header collapsible" id="recs-header" data-target="recs-content">
-              <div>
-                <p class="eyebrow">Recommendations</p>
-                <h2>Personalized shoe suggestions by context</h2>
-              </div>
-              <span class="collapse-indicator" id="recs-indicator">−</span>
-            </div>
-            <div id="recs-content" class="collapsible-content">
-              <div class="tab-row" id="context-tabs">
-                <button class="tab-button active" data-context="easy" type="button">Easy</button>
-                <button class="tab-button" data-context="long" type="button">Long</button>
-                <button class="tab-button" data-context="workout" type="button">Workout</button>
-                <button class="tab-button" data-context="trail" type="button">Trail</button>
-                <button class="tab-button" data-context="replace" type="button">Replace next</button>
-              </div>
-              <div id="recommendation-meta" class="message-banner muted">Add data to see recommendations.</div>
-              <div id="recommendation-results" class="card-grid">
-                <!-- Recommendations rendered here -->
-              </div>
-            </div>
-          </article>
+            </article>
+          </div>
         </section>
       </main>
     </div>

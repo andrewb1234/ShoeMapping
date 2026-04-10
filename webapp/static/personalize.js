@@ -40,35 +40,39 @@ const vizMileageContent = document.getElementById("viz-mileage-content");
 const vizPaceContent = document.getElementById("viz-pace-content");
 const vizCalendarContent = document.getElementById("viz-calendar-content");
 
-// Progressive disclosure elements
-const sourceHeader = document.getElementById("source-header");
-const sourceContent = document.getElementById("source-content");
-const sourceSummary = document.getElementById("source-summary");
-const sourceIndicator = document.getElementById("source-indicator");
-const sourceTitle = document.getElementById("source-title");
-const sourceSummaryValue = document.getElementById("source-summary-value");
+// State sections
+const landingState = document.getElementById("landing-state");
+const importState = document.getElementById("import-state");
+const mappingState = document.getElementById("mapping-state");
+const dashboardState = document.getElementById("dashboard-state");
+
+// Landing elements
+const getStartedBtn = document.getElementById("get-started-btn");
+
+// Import elements
+const dropZone = document.getElementById("drop-zone");
+const importFileInput = document.getElementById("import-file-input");
+const uploadBtn = document.getElementById("upload-btn");
+const uploadProgress = document.getElementById("upload-progress");
+const backToLandingBtn = document.getElementById("back-to-landing");
+const continueToMappingBtn = document.getElementById("continue-to-mapping");
+const previewMileage = document.getElementById("preview-mileage");
+const previewShoes = document.getElementById("preview-shoes");
+const previewActivities = document.getElementById("preview-activities");
+const previewDateRange = document.getElementById("preview-date-range");
+
+// Mapping elements
+const detectedShoesList = document.getElementById("detected-shoes-list");
+const saveAndContinueMappingBtn = document.getElementById("save-and-continue-mapping");
+const skipMappingBtn = document.getElementById("skip-mapping");
+
+// Dashboard elements
+const dashboardTabs = document.querySelectorAll(".dashboard-tabs .tab-btn");
+const tabContents = document.querySelectorAll(".tab-content");
 const recsHeader = document.getElementById("recs-header");
 const recsContent = document.getElementById("recs-content");
 const recsIndicator = document.getElementById("recs-indicator");
 const resultsStep = document.getElementById("results-step");
-const progressData = document.getElementById("progress-data");
-const progressProfile = document.getElementById("progress-profile");
-const progressRecs = document.getElementById("progress-recs");
-
-// New scroll-triggered elements
-const heroSection = document.getElementById("hero-section");
-const progressSticky = document.getElementById("progress-sticky");
-const heroCards = Array.from(document.querySelectorAll(".hero-card"));
-const ingestHeader = document.getElementById("ingest-header");
-const ingestContent = document.getElementById("ingest-content");
-const ingestSummary = document.getElementById("ingest-summary");
-const ingestIndicator = document.getElementById("ingest-indicator");
-const profileHeader = document.getElementById("profile-header");
-const profileContent = document.getElementById("profile-content");
-const profileSummaryCompact = document.getElementById("profile-summary-compact");
-const profileIndicator = document.getElementById("profile-indicator");
-const shoeMappingStep = document.getElementById("shoe-mapping-step");
-const unmappedShoesContainer = document.getElementById("unmapped-shoes-container");
 
 function setBanner(message, level = "info") {
   banner.textContent = message;
@@ -139,110 +143,63 @@ function switchSource(nextSource) {
   updateSourceSummary();
 }
 
-// Progressive disclosure: collapsible panel toggle
-function togglePanel(panelId) {
-  if (panelId === "source") {
-    personalizeState.sourceCollapsed = !personalizeState.sourceCollapsed;
-    const isCollapsed = personalizeState.sourceCollapsed;
-    sourceContent.classList.toggle("collapsed", isCollapsed);
-    sourceSummary.style.display = isCollapsed ? "flex" : "none";
-    sourceIndicator.textContent = isCollapsed ? "+" : "−";
-    sourceHeader.classList.toggle("collapsed", isCollapsed);
-  } else if (panelId === "ingest") {
-    const isCollapsed = ingestContent.classList.contains("collapsed");
-    ingestContent.classList.toggle("collapsed", !isCollapsed);
-    ingestSummary.style.display = isCollapsed ? "none" : "flex";
-    ingestIndicator.textContent = isCollapsed ? "−" : "+";
-    ingestHeader.classList.toggle("collapsed", !isCollapsed);
-  } else if (panelId === "profile") {
-    const isCollapsed = profileContent.classList.contains("collapsed");
-    profileContent.classList.toggle("collapsed", !isCollapsed);
-    profileSummaryCompact.style.display = isCollapsed ? "none" : "flex";
-    profileIndicator.textContent = isCollapsed ? "−" : "+";
-    profileHeader.classList.toggle("collapsed", !isCollapsed);
-  } else if (panelId === "recs") {
-    personalizeState.recsCollapsed = !personalizeState.recsCollapsed;
-    const isCollapsed = personalizeState.recsCollapsed;
-    recsContent.classList.toggle("collapsed", isCollapsed);
-    recsIndicator.textContent = isCollapsed ? "+" : "−";
+// State management
+let currentState = "landing"; // landing, import, mapping, dashboard
+
+function showState(state) {
+  currentState = state;
+  
+  // Hide all states
+  landingState.style.display = "none";
+  importState.style.display = "none";
+  mappingState.style.display = "none";
+  dashboardState.style.display = "none";
+  
+  // Show target state
+  switch (state) {
+    case "landing":
+      landingState.style.display = "block";
+      break;
+    case "import":
+      importState.style.display = "block";
+      break;
+    case "mapping":
+      mappingState.style.display = "block";
+      renderDetectedShoesForMapping();
+      break;
+    case "dashboard":
+      dashboardState.style.display = "block";
+      refreshWorkspace();
+      break;
+  }
+  
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function showLanding() {
+  showState("landing");
+}
+
+function showImport() {
+  showState("import");
+}
+
+function showMapping() {
+  showState("mapping");
+}
+
+function showDashboard() {
+  showState("dashboard");
+}
+
+// Toggle recommendations panel
+function toggleRecsPanel() {
+  personalizeState.recsCollapsed = !personalizeState.recsCollapsed;
+  const isCollapsed = personalizeState.recsCollapsed;
+  recsContent.classList.toggle("collapsed", isCollapsed);
+  recsIndicator.textContent = isCollapsed ? "+" : "−";
+  if (recsHeader) {
     recsHeader.classList.toggle("collapsed", isCollapsed);
-  }
-}
-
-// Collapse all onboarding panels (called after data is added)
-function collapseAllOnboardingPanels() {
-  if (sourceContent && !sourceContent.classList.contains("collapsed")) {
-    togglePanel("source");
-  }
-  if (ingestContent && !ingestContent.classList.contains("collapsed")) {
-    togglePanel("ingest");
-  }
-  if (profileContent && !profileContent.classList.contains("collapsed")) {
-    togglePanel("profile");
-  }
-}
-
-// Hero section: scroll to and select data source
-function handleHeroAction(action) {
-  // Hide hero section smoothly
-  if (heroSection) {
-    heroSection.classList.add("scrolled-past");
-    setTimeout(() => {
-      heroSection.classList.add("hidden");
-      // Scroll to onboarding flow
-      const onboardingFlow = document.getElementById("onboarding-flow");
-      if (onboardingFlow) {
-        onboardingFlow.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
-    }, 500);
-  }
-  
-  // Select the appropriate source
-  switchSource(action);
-  
-  // Update hero selection state
-  heroCards.forEach((card) => {
-    card.classList.toggle("active", card.dataset.heroAction === action);
-  });
-}
-
-// Update source summary text based on selected source
-function updateSourceSummary() {
-  const sourceLabels = {
-    manual: "Manual entry",
-    csv: "CSV import",
-    gpx: "GPX upload",
-    strava: "Strava sync"
-  };
-  if (sourceSummaryValue) {
-    sourceSummaryValue.textContent = sourceLabels[personalizeState.currentSource] || "Manual entry";
-  }
-}
-
-// Collapse source panel after data is added/imported
-function collapseSourcePanel() {
-  collapseAllOnboardingPanels();
-}
-
-// Update progress indicator based on user state
-function updateProgressIndicator() {
-  const hasData = personalizeState.hasData;
-  const hasProfile = personalizeState.profile && personalizeState.profile.summary;
-  
-  // Reset all
-  progressData.classList.remove("active", "complete");
-  progressProfile.classList.remove("active", "complete");
-  progressRecs.classList.remove("active", "complete");
-  
-  if (!hasData) {
-    progressData.classList.add("active");
-  } else if (hasData && !hasProfile) {
-    progressData.classList.add("complete");
-    progressProfile.classList.add("active");
-  } else {
-    progressData.classList.add("complete");
-    progressProfile.classList.add("complete");
-    progressRecs.classList.add("active");
   }
 }
 
@@ -415,56 +372,128 @@ function renderRecommendations(context) {
   recommendationResults.innerHTML = limitedResults.map(recommendationCard).join("");
 }
 
-// Render unmapped shoes in the dedicated mapping section
-function renderUnmappedShoes() {
-  if (!unmappedShoesContainer || !shoeMappingStep) return;
+// Render detected shoes for the mapping page (matches reference image 3)
+function renderDetectedShoesForMapping() {
+  if (!detectedShoesList) return;
   
-  const unmappedShoes = personalizeState.rotation.filter((shoe) => shoe.mapping_status !== "catalog_matched");
+  // Get shoes that need mapping (unmapped or custom entries)
+  const shoesToMap = personalizeState.rotation.filter((shoe) => 
+    shoe.mapping_status === "unmapped" || shoe.mapping_status === "custom"
+  );
   
-  if (unmappedShoes.length === 0) {
-    shoeMappingStep.style.display = "none";
+  if (shoesToMap.length === 0) {
+    // If no shoes need mapping, show a message and enable continue
+    detectedShoesList.innerHTML = `
+      <div class="mapping-card">
+        <div class="detected-info">
+          <h3>All shoes mapped!</h3>
+          <p class="detected-subtitle">Your shoes have been matched to the catalog.</p>
+        </div>
+      </div>
+    `;
+    if (continueToMappingBtn) {
+      continueToMappingBtn.disabled = false;
+    }
     return;
   }
   
-  shoeMappingStep.style.display = "block";
-  unmappedShoesContainer.innerHTML = unmappedShoes.map((shoe) => `
-    <div class="unmapped-shoe-card" data-shoe-id="${shoe.owned_shoe_id}">
-      <div class="shoe-name">${shoe.gear_name || shoe.custom_name || "Unnamed shoe"}</div>
-      <div class="map-action">
-        <select class="map-select" data-shoe-id="${shoe.owned_shoe_id}">
-          <option value="">Match to catalog...</option>
-          ${personalizeState.catalogShoes.map((catalogShoe) => `
-            <option value="${catalogShoe.shoe_id}">${catalogShoe.display_name}</option>
-          `).join("")}
-        </select>
-        <button class="cta-small map-btn" data-shoe-id="${shoe.owned_shoe_id}">Map</button>
+  detectedShoesList.innerHTML = shoesToMap.map((shoe, index) => {
+    const isDetected = shoe.source_kind === "detected";
+    const displayName = shoe.raw_import_name || shoe.gear_name || shoe.custom_name || `Shoe ${index + 1}`;
+    const matchedCatalog = shoe.mapped_catalog_shoe;
+    
+    return `
+      <div class="mapping-card ${isDetected ? 'detected' : ''}" data-shoe-id="${shoe.id}">
+        <div class="detected-info">
+          <h3>DETECTED SHOE ${index + 1}</h3>
+          <p class="detected-subtitle">(e.g., ${displayName})</p>
+          <div class="detected-stats">
+            <div class="detected-stat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <path d="M12 6v6l4 2"/>
+              </svg>
+              <span>Total Miles: ${(shoe.current_mileage_km * 0.621371).toFixed(0)} mi / ${shoe.current_mileage_km.toFixed(1)} km</span>
+            </div>
+            <div class="detected-stat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/>
+                <line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/>
+                <line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              <span>Last Run: ${shoe.last_used_date ? new Date(shoe.last_used_date).toLocaleDateString('en-US', {month:'short', day:'numeric'}) : 'N/A'}</span>
+            </div>
+            <div class="detected-stat">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+              </svg>
+              <span>Avg. Pace: ${shoe.avg_pace || 'N/A'}</span>
+            </div>
+          </div>
+        </div>
+        <div class="match-section">
+          <h4>MATCH TO CATALOG</h4>
+          <div class="match-search">
+            <input type="text" placeholder="Search official catalog..." class="catalog-search" data-shoe-id="${shoe.id}" />
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="M21 21l-4.35-4.35"/>
+            </svg>
+          </div>
+          <select class="match-select" data-shoe-id="${shoe.id}">
+            <option value="">${matchedCatalog ? matchedCatalog.display_name : 'Select a match...'}</option>
+            ${personalizeState.catalogShoes.map((catalogShoe) => `
+              <option value="${catalogShoe.shoe_id}" ${matchedCatalog && matchedCatalog.shoe_id === catalogShoe.shoe_id ? 'selected' : ''}>
+                ${catalogShoe.display_name}
+              </option>
+            `).join("")}
+            <option value="clear">Clear / Manual Entry</option>
+          </select>
+          <button class="cta-primary match-btn" data-shoe-id="${shoe.id}">
+            ${matchedCatalog ? 'Update Match' : 'Confirm Match'}
+          </button>
+        </div>
       </div>
-    </div>
-  `).join("");
+    `;
+  }).join("");
   
-  // Add event listeners for map buttons
-  unmappedShoesContainer.querySelectorAll(".map-btn").forEach((btn) => {
+  // Add event listeners for mapping
+  detectedShoesList.querySelectorAll(".match-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
       const shoeId = e.target.dataset.shoeId;
-      const select = unmappedShoesContainer.querySelector(`select[data-shoe-id="${shoeId}"]`);
+      const select = detectedShoesList.querySelector(`select[data-shoe-id="${shoeId}"]`);
       const catalogShoeId = select?.value;
-      if (!catalogShoeId) {
-        setBanner("Please select a catalog shoe to map.", "warning");
+      
+      if (!catalogShoeId || catalogShoeId === "clear") {
+        // Handle clear/manual entry
+        setBanner("Shoe set to manual entry.", "info");
+        renderDetectedShoesForMapping();
         return;
       }
+      
       try {
         await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ catalog_shoe_id: catalogShoeId }),
         });
-        setBanner("Shoe mapped successfully.", "success");
+        setBanner("Shoe mapped successfully!", "success");
         await refreshWorkspace();
+        renderDetectedShoesForMapping();
       } catch (error) {
         setBanner(error.message, "error");
       }
     });
   });
+}
+
+// Legacy function - no longer used but kept for compatibility
+function renderUnmappedShoes() {
+  // Redirect to new mapping UI if on mapping state
+  if (currentState === "mapping") {
+    renderDetectedShoesForMapping();
+  }
 }
 
 async function loadCatalogShoes() {
@@ -1024,98 +1053,165 @@ window.addEventListener("DOMContentLoaded", async () => {
     await refreshWorkspace();
     await loadVisualizations();
     
-    // Set up collapsible panel click handlers
-    if (sourceHeader) {
-      sourceHeader.addEventListener("click", () => togglePanel("source"));
-    }
-    if (ingestHeader) {
-      ingestHeader.addEventListener("click", () => togglePanel("ingest"));
-    }
-    if (profileHeader) {
-      profileHeader.addEventListener("click", () => togglePanel("profile"));
-    }
-    if (recsHeader) {
-      recsHeader.addEventListener("click", () => togglePanel("recs"));
+    // Set up state transitions
+    if (getStartedBtn) {
+      getStartedBtn.addEventListener("click", showImport);
     }
     
-    // Hero card click handlers
-    heroCards.forEach((card) => {
-      card.addEventListener("click", () => {
-        const action = card.dataset.heroAction;
-        if (action) {
-          handleHeroAction(action);
+    if (backToLandingBtn) {
+      backToLandingBtn.addEventListener("click", showLanding);
+    }
+    
+    if (continueToMappingBtn) {
+      continueToMappingBtn.addEventListener("click", showMapping);
+    }
+    
+    if (saveAndContinueMappingBtn) {
+      saveAndContinueMappingBtn.addEventListener("click", showDashboard);
+    }
+    
+    if (skipMappingBtn) {
+      skipMappingBtn.addEventListener("click", showDashboard);
+    }
+    
+    // Dashboard tabs
+    dashboardTabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        const targetTab = tab.dataset.tab;
+        
+        // Update active tab
+        dashboardTabs.forEach((t) => t.classList.remove("active"));
+        tab.classList.add("active");
+        
+        // Update active content
+        tabContents.forEach((content) => {
+          content.classList.remove("active");
+          content.style.display = "none";
+        });
+        const targetContent = document.getElementById(`tab-${targetTab}`);
+        if (targetContent) {
+          targetContent.classList.add("active");
+          targetContent.style.display = "block";
         }
       });
     });
     
-    // Initialize progress indicator
-    updateProgressIndicator();
+    // Import page: drag and drop
+    if (dropZone) {
+      dropZone.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+      
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+      });
+      
+      dropZone.addEventListener("drop", (e) => {
+        e.preventDefault();
+        dropZone.classList.remove("drag-over");
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFileUpload(files[0]);
+        }
+      });
+      
+      dropZone.addEventListener("click", () => {
+        if (importFileInput) {
+          importFileInput.click();
+        }
+      });
+    }
     
-    // Set up scroll-triggered animations
-    setupScrollObserver();
+    if (importFileInput) {
+      importFileInput.addEventListener("change", (e) => {
+        if (e.target.files.length > 0) {
+          handleFileUpload(e.target.files[0]);
+        }
+      });
+    }
     
-    // Set up sticky progress bar
-    setupStickyProgressBar();
+    if (uploadBtn) {
+      uploadBtn.addEventListener("click", () => {
+        if (importFileInput) {
+          importFileInput.click();
+        }
+      });
+    }
+    
+    // Set up collapsible recommendations panel
+    if (recsHeader) {
+      recsHeader.addEventListener("click", toggleRecsPanel);
+    }
+    
+    // Initialize visibility
+    updateRecommendationsVisibility();
+    
+    // Check if user has data - if so, show dashboard directly
+    if (personalizeState.hasData) {
+      showDashboard();
+    } else {
+      showLanding();
+    }
   } catch (error) {
     setBanner(error.message, "error");
   }
 });
 
-// Scroll observer for viewport-based card dismissal
-function setupScrollObserver() {
-  const scrollSections = document.querySelectorAll(".scroll-section");
+// Handle file upload for import page
+async function handleFileUpload(file) {
+  if (!file) return;
   
-  const observerOptions = {
-    root: null,
-    rootMargin: "-10% 0px -30% 0px",
-    threshold: [0, 0.25, 0.5, 0.75, 1]
-  };
+  // Show progress
+  if (uploadProgress) {
+    uploadProgress.style.display = "block";
+  }
   
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      const section = entry.target;
-      const ratio = entry.intersectionRatio;
-      
-      if (ratio < 0.25) {
-        section.classList.add("viewport-exit");
-        section.classList.remove("viewport-far");
-      } else if (ratio < 0.5) {
-        section.classList.add("viewport-far");
-        section.classList.remove("viewport-exit");
-      } else {
-        section.classList.remove("viewport-exit", "viewport-far");
-      }
-      
-      // Auto-dismiss onboarding cards when scrolled well past
-      if (section.classList.contains("onboarding-card") && ratio < 0.1 && entry.boundingClientRect.top < 0) {
-        section.classList.add("dismissed");
-      } else if (ratio > 0.3) {
-        section.classList.remove("dismissed");
-      }
+  try {
+    const formData = new FormData();
+    formData.append("file", file);
+    const sourceType = file.name.toLowerCase().endsWith(".gpx") ? "gpx" : "csv";
+    formData.append("source_type", sourceType);
+    
+    const payload = await apiFetch("/api/imports", {
+      method: "POST",
+      body: formData,
     });
-  }, observerOptions);
-  
-  scrollSections.forEach((section) => {
-    observer.observe(section);
-  });
-}
-
-// Sticky progress bar visibility
-function setupStickyProgressBar() {
-  if (!progressSticky) return;
-  
-  const heroObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry) => {
-      // Show sticky progress when hero scrolls out of view
-      if (!entry.isIntersecting) {
-        progressSticky.classList.add("visible");
-      } else {
-        progressSticky.classList.remove("visible");
-      }
-    });
-  }, { threshold: 0.1 });
-  
-  if (heroSection) {
-    heroObserver.observe(heroSection);
+    
+    const summary = payload.summary || {};
+    
+    // Update preview panel
+    if (previewMileage) {
+      const km = summary.total_distance_km || 0;
+      previewMileage.textContent = `${(km * 0.621371).toFixed(0)} mi / ${km.toFixed(1)} km`;
+    }
+    if (previewShoes) {
+      previewShoes.textContent = summary.detected_shoe_count || 0;
+    }
+    if (previewActivities) {
+      previewActivities.textContent = summary.imported_activities || 0;
+    }
+    if (previewDateRange && summary.date_range) {
+      previewDateRange.textContent = `${summary.date_range.start} - ${summary.date_range.end}`;
+    }
+    
+    // Enable continue button
+    if (continueToMappingBtn) {
+      continueToMappingBtn.disabled = false;
+    }
+    
+    setBanner(
+      `Imported ${summary.imported_activities || 0} runs. Detected ${summary.detected_shoe_count || 0} shoes.`,
+      "success"
+    );
+    
+    // Refresh workspace to get new data
+    await refreshWorkspace();
+  } catch (error) {
+    setBanner(error.message, "error");
+  } finally {
+    if (uploadProgress) {
+      uploadProgress.style.display = "none";
+    }
   }
 }
