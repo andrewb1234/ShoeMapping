@@ -456,16 +456,21 @@ function renderDetectedShoesForMapping() {
   // Add event listeners for mapping
   detectedShoesList.querySelectorAll(".match-btn").forEach((btn) => {
     btn.addEventListener("click", async (e) => {
-      const shoeId = e.target.dataset.shoeId;
-      const select = detectedShoesList.querySelector(`select[data-shoe-id="${shoeId}"]`);
+      const matchBtn = e.target.closest(".match-btn");
+      const shoeId = matchBtn.dataset.shoeId;
+      const select = detectedShoesList.querySelector(`select.match-select[data-shoe-id="${shoeId}"]`);
       const catalogShoeId = select?.value;
       
       if (!catalogShoeId || catalogShoeId === "clear") {
-        // Handle clear/manual entry
         setBanner("Shoe set to manual entry.", "info");
         renderDetectedShoesForMapping();
         return;
       }
+      
+      // Show loading state on button
+      const originalHTML = matchBtn.innerHTML;
+      matchBtn.classList.add("is-loading");
+      matchBtn.innerHTML = '<span class="spinner"></span> Mapping…';
       
       try {
         await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
@@ -477,6 +482,8 @@ function renderDetectedShoesForMapping() {
         await refreshWorkspace();
         renderDetectedShoesForMapping();
       } catch (error) {
+        matchBtn.classList.remove("is-loading");
+        matchBtn.innerHTML = originalHTML;
         setBanner(error.message, "error");
       }
     });
@@ -536,7 +543,7 @@ async function loadRecommendations(context = personalizeState.activeContext) {
 }
 
 async function refreshWorkspace() {
-  await Promise.all([loadProfile(), loadRotation()]);
+  await Promise.all([loadProfile(), loadRotation(), loadVisualizations()]);
   renderProfile();
   updateRecommendationsVisibility();
   await loadRecommendations(personalizeState.activeContext);
@@ -1074,7 +1081,6 @@ window.addEventListener("DOMContentLoaded", async () => {
     await bootstrapSession();
     await loadCatalogShoes();
     await refreshWorkspace();
-    await loadVisualizations();
     
     // Set up state transitions
     if (getStartedBtn) {
@@ -1190,14 +1196,31 @@ window.addEventListener("DOMContentLoaded", async () => {
   }
 });
 
+function setUploadLoading(loading) {
+  if (!dropZone) return;
+  if (loading) {
+    dropZone.classList.add("is-loading");
+    let overlay = dropZone.querySelector(".upload-loading-overlay");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "upload-loading-overlay";
+      overlay.innerHTML = '<span class="spinner"></span><p>Importing activities…</p>';
+      dropZone.appendChild(overlay);
+    }
+    overlay.style.display = "flex";
+  } else {
+    dropZone.classList.remove("is-loading");
+    const overlay = dropZone.querySelector(".upload-loading-overlay");
+    if (overlay) overlay.style.display = "none";
+  }
+}
+
 // Handle file upload for import page
 async function handleFileUpload(file) {
   if (!file) return;
   
-  // Show progress
-  if (uploadProgress) {
-    uploadProgress.style.display = "block";
-  }
+  // Show loading overlay
+  setUploadLoading(true);
   
   try {
     const formData = new FormData();
@@ -1242,8 +1265,6 @@ async function handleFileUpload(file) {
   } catch (error) {
     setBanner(error.message, "error");
   } finally {
-    if (uploadProgress) {
-      uploadProgress.style.display = "none";
-    }
+    setUploadLoading(false);
   }
 }

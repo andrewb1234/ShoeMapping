@@ -2252,6 +2252,67 @@ a {
   margin-top: 16px;
 }
 
+/* Loading spinner */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--grid-line-dim);
+  border-top-color: var(--accent-tactical);
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+  vertical-align: middle;
+}
+
+.upload-zone.is-loading {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+.upload-zone.is-loading .upload-content {
+  pointer-events: none;
+}
+
+.upload-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  z-index: 10;
+  background: rgba(18, 18, 18, 0.85);
+  border-radius: inherit;
+}
+
+.upload-loading-overlay .spinner {
+  width: 32px;
+  height: 32px;
+  border-width: 3px;
+}
+
+.upload-loading-overlay p {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.match-btn.is-loading {
+  pointer-events: none;
+  opacity: 0.7;
+}
+
+.match-btn .spinner {
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+}
+
 .upload-hint {
   font-family: var(--font-mono);
   font-size: 0.75rem;
