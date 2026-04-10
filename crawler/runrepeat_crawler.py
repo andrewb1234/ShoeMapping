@@ -558,7 +558,7 @@ def crawl(
     delay_seconds: float,
     rebuild_db: bool,
 ) -> None:
-    from database import init_database, get_existing_shoe_ids, save_shoe_records
+    from crawler.database import init_database, get_existing_shoe_ids, save_shoe_records
     
     if rebuild_db and output_path.exists():
         logger.warning(f"Rebuilding database, removing existing file: {output_path}")

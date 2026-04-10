@@ -1,6 +1,6 @@
 """Hybrid K-Means pipeline with Gemini-informed metric learning.
 
-Follows the architecture described in possible_pipeline.md:
+Follows the architecture originally described in the project design docs:
   Phase 1 – Feature Engineering  (delegated to ShoeKMeansClusterer)
   Phase 2 – Pairwise Targets     (Gemini similarity → Must-Link / Cannot-Link)
   Phase 3 – Distance Metric Learning (ITML from metric-learn)

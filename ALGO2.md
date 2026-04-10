@@ -1,4 +1,4 @@
-Your current approach in `shoe_clustering.py` has a subtle flaw common to K-Means: **the hard boundary problem**. Right now, your code finds the cluster for the query shoe, and *only* looks for neighbors within that exact same cluster. If a shoe sits right on the edge of Cluster A, its true closest neighbor might be just across the border in Cluster B, but your algorithm is completely blind to it.
+Your current approach in `ml/shoe_clustering.py` has a subtle flaw common to K-Means: **the hard boundary problem**. Right now, your code finds the cluster for the query shoe, and *only* looks for neighbors within that exact same cluster. If a shoe sits right on the edge of Cluster A, its true closest neighbor might be just across the border in Cluster B, but your algorithm is completely blind to it.
 
 Here is how you can build a vastly superior matching algorithm using synthetic supervised learning, without doing any manual grading, and without the need for clunky browser automation.
 

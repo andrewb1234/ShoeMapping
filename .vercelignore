@@ -2,20 +2,12 @@
 # These are kept in the repo for local development and reproducibility
 # but are not needed for the serverless runtime.
 
-test_kmeans_integration.py
-shoe_clustering.py
-supervised_shoe_matcher.py
-supervised_matching_service.py
-synthetic_dataset_generator.py
-evaluate_supervised_model.py
-elbow_plot.py
-data_preprocessor.py
-example_usage.py
-check_gemini_models.py
+# ML pipeline and scripts (not needed for serverless runtime)
+ml/
+scripts/
 generate_catalog.py
 precompute_recommendations.py
-hybrid_kmeans_pipeline.py
-hybrid_matching_service.py
+shoe_catalog_facets.py
 
 # Data files not needed at runtime (precomputed JSONs are kept)
 data/*.sqlite
@@ -26,7 +18,7 @@ data/*.pkl
 ALGO2.md
 KMEANS_INTEGRATION_README.md
 SUPERVISED_MATCHING_README.md
-possible_pipeline.md
+PROJECT_EVALUATION.md
 
 # Crawler
 crawler/

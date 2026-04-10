@@ -21,7 +21,7 @@ from typing import Any, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from hybrid_kmeans_pipeline import HybridKMeansPipeline
+from ml.hybrid_kmeans_pipeline import HybridKMeansPipeline
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

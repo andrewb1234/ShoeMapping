@@ -348,7 +348,7 @@ ENABLE_STRAVA_UI=true
 
 ## Recommended Immediate Follow-Up
 
-- add a `render.yaml` so the API, worker, and Postgres can be provisioned from one blueprint
+- `render.yaml` is present — API and Postgres can be provisioned from one blueprint (worker is commented out; jobs run inline)
 - provision the personalization host
 - wire `PERSONALIZATION_BASE_URL` into Vercel
 - do an end-to-end test of:

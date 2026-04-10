@@ -20,9 +20,9 @@ Re-use virtual environment if one is already activated.
 - Only static JSON artifacts are deployed (`data/shoes.catalog.json`, `data/precomputed_recommendations.json`)
 - `.vercelignore` excludes personalization stack, ML scripts, and heavy data files
 
-### Render (Personalization API + Worker + Postgres)
-- **Blueprint**: `render.yaml` at repo root defines all three services
-- **Services**: `shoe-mapping-api` (web), `shoe-mapping-worker` (worker), `shoe-mapping-db` (Postgres)
+### Render (Personalization API + Postgres)
+- **Blueprint**: `render.yaml` at repo root defines the API and Postgres (worker is commented out; jobs run inline via `INLINE_JOB_EXECUTION=true`)
+- **Services**: `shoe-mapping-api` (web), `shoe-mapping-db` (Postgres)
 - **Deploy branch**: Currently `personalization-mvp`; switch to `main` when promoting to production
 - **Migrations**: `DATABASE_URL='<url>' alembic upgrade head`
 - **Env vars**: `DATABASE_URL` wired from Postgres, `SESSION_SECRET` auto-generated, see `IMPLEMENTATION_STATUS.md` for full list

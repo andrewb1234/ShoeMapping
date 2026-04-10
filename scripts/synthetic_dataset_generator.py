@@ -21,7 +21,7 @@ from sklearn.impute import SimpleImputer
 from sklearn.preprocessing import StandardScaler
 
 # Import clustering functionality
-from shoe_clustering import ShoeKMeansClusterer
+from ml.shoe_clustering import ShoeKMeansClusterer
 
 # Load environment variables
 load_dotenv()

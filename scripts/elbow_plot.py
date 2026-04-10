@@ -14,7 +14,7 @@ from typing import List
 import matplotlib.pyplot as plt
 import numpy as np
 
-from shoe_clustering import DEFAULT_DB_PATH, ShoeKMeansClusterer
+from ml.shoe_clustering import DEFAULT_DB_PATH, ShoeKMeansClusterer
 
 try:
     from sklearn.cluster import KMeans

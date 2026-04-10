@@ -1,6 +1,6 @@
 """Example usage of the ActivityDataProcessor for clustering analysis."""
 
-from data_preprocessor import ActivityDataProcessor
+from scripts.data_preprocessor import ActivityDataProcessor
 from pathlib import Path
 
 def example_usage():

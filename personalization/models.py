@@ -8,10 +8,7 @@ from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Integer, Stri
 from sqlalchemy.orm import Mapped, mapped_column
 
 from personalization.db import Base
-
-
-def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+from personalization.utils import utcnow
 
 
 def new_id() -> str:

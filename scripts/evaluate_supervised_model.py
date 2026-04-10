@@ -14,7 +14,7 @@ import numpy as np
 import pandas as pd
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-from supervised_shoe_matcher import SupervisedShoeMatcher
+from ml.supervised_shoe_matcher import SupervisedShoeMatcher
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -160,7 +160,7 @@ def compare_with_kmeans(
     
     # For K-means, we'll use a simple heuristic based on cluster distance
     # This is a simplified comparison - in practice, K-means doesn't output similarity scores
-    from shoe_clustering import ShoeKMeansClusterer
+    from ml.shoe_clustering import ShoeKMeansClusterer
     
     clusterer = ShoeKMeansClusterer(n_clusters=8, terrain_filter=None)
     

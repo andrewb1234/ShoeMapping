@@ -52,7 +52,7 @@ pip install -r requirements.txt
 
 ```bash
 # Start with a smaller dataset for testing
-python synthetic_dataset_generator.py
+python scripts/synthetic_dataset_generator.py
 
 # This will create data/synthetic_similarity_dataset.csv
 # Adjust num_pairs parameter for larger datasets
@@ -61,7 +61,7 @@ python synthetic_dataset_generator.py
 ### Step 3: Train the Model
 
 ```bash
-python supervised_shoe_matcher.py
+python -m ml.supervised_shoe_matcher
 
 # This will:
 # - Load the synthetic dataset
@@ -72,7 +72,7 @@ python supervised_shoe_matcher.py
 ### Step 4: Evaluate the Model
 
 ```bash
-python evaluate_supervised_model.py
+python scripts/evaluate_supervised_model.py
 
 # This calculates:
 # - MAE, RMSE, correlation metrics
@@ -92,10 +92,12 @@ The web app will automatically use the supervised model if available, falling ba
 ## File Structure
 
 ```
-├── synthetic_dataset_generator.py    # Generates training data using Gemini
-├── supervised_shoe_matcher.py        # Core model training and inference
-├── supervised_matching_service.py    # Service layer for webapp integration
-├── evaluate_supervised_model.py      # Model evaluation and metrics
+├── ml/
+│   ├── supervised_shoe_matcher.py        # Core model training and inference
+│   └── supervised_matching_service.py    # Service layer for webapp integration
+├── scripts/
+│   ├── synthetic_dataset_generator.py    # Generates training data using Gemini
+│   └── evaluate_supervised_model.py      # Model evaluation and metrics
 └── data/
     ├── synthetic_similarity_dataset.csv    # Generated training data
     └── supervised_shoe_matcher.pkl         # Trained model
@@ -146,14 +148,14 @@ GOOGLE_GEMINI_API_KEY=your_api_key_here
 
 ### Model Parameters
 
-In `supervised_shoe_matcher.py`:
+In `ml/supervised_shoe_matcher.py`:
 - `model_type`: "xgboost" (default) or "randomforest"
 - `n_estimators`: 100 trees
 - `max_depth`: 6 for XGBoost, 10 for Random Forest
 
 ### Dataset Generation
 
-In `synthetic_dataset_generator.py`:
+In `scripts/synthetic_dataset_generator.py`:
 - `num_pairs`: Number of synthetic pairs to generate
 - `batch_size`: API call batching for rate limiting
 - `max_retries`: Retry attempts for failed API calls
@@ -162,7 +164,7 @@ In `synthetic_dataset_generator.py`:
 
 ### Model Not Loading
 - Check that `data/supervised_shoe_matcher.pkl` exists
-- Run `supervised_shoe_matcher.py` to train the model
+- Run `python -m ml.supervised_shoe_matcher` to train the model
 - Check logs for import errors
 
 ### API Rate Limits

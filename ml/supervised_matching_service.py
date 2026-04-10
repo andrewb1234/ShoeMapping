@@ -13,7 +13,7 @@ from typing import Dict, List, Optional, Tuple
 import pandas as pd
 from difflib import get_close_matches
 
-from supervised_shoe_matcher import SupervisedShoeMatcher
+from ml.supervised_shoe_matcher import SupervisedShoeMatcher
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

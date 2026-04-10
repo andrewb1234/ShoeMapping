@@ -31,10 +31,10 @@ OUTPUT_PATH = Path("data/precomputed_recommendations.json")
 def _get_backend(backend_name: str):
     """Return the matching service for the chosen backend."""
     if backend_name == "supervised":
-        from supervised_matching_service import get_matching_service
+        from ml.supervised_matching_service import get_matching_service
         return get_matching_service()
     elif backend_name == "hybrid":
-        from hybrid_matching_service import get_hybrid_matching_service
+        from ml.hybrid_matching_service import get_hybrid_matching_service
         return get_hybrid_matching_service()
     else:
         raise ValueError(f"Unknown backend: {backend_name!r}. Use 'supervised' or 'hybrid'.")

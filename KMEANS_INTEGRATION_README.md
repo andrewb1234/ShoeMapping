@@ -42,13 +42,13 @@ The model now trains on these additional features:
 
 ### Generate Full Dataset
 ```bash
-python generate_full_dataset.py
+python scripts/synthetic_dataset_generator.py
 ```
 This creates a 50,000 pair dataset with clustering features.
 
 ### Train Model with Clustering
 ```python
-from supervised_shoe_matcher import SupervisedShoeMatcher
+from ml.supervised_shoe_matcher import SupervisedShoeMatcher
 
 matcher = SupervisedShoeMatcher(model_type="xgboost")
 matcher.load_shoes_from_db()  # Automatically initializes K-Means
@@ -58,7 +58,7 @@ matcher.save_model()
 
 ### Test Integration
 ```bash
-python test_kmeans_integration.py
+python scripts/test_kmeans_integration.py
 ```
 
 ## Benefits

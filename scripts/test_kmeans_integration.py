@@ -3,8 +3,8 @@
 
 import pandas as pd
 from pathlib import Path
-from supervised_shoe_matcher import SupervisedShoeMatcher
-from synthetic_dataset_generator import generate_synthetic_dataset
+from ml.supervised_shoe_matcher import SupervisedShoeMatcher
+from scripts.synthetic_dataset_generator import generate_synthetic_dataset
 
 def test_integration():
     """Test the integration of K-Means clustering with XGBoost."""

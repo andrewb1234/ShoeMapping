@@ -23,28 +23,14 @@ ShoeMapping is a running shoe recommendation platform with a strong technical fo
 
 ### 2.1 Critical Debt (Fix Now)
 
-#### Dead / Orphaned Files at Root Level
-17 Python files sit at the repository root with mixed concerns:
-- `check_gemini_models.py`, `elbow_plot.py`, `example_usage.py`, `test_kmeans_integration.py` — one-off scripts that should live in a `scripts/` directory or be deleted
-- `database.py`, `data_preprocessor.py` — legacy data access that predates the current `personalization/` and `webapp/` structure
-- `shoe_clustering.py`, `supervised_shoe_matcher.py`, `hybrid_kmeans_pipeline.py`, `hybrid_matching_service.py`, `supervised_matching_service.py` — ML pipeline files that should be under an `ml/` package
-- `synthetic_dataset_generator.py`, `evaluate_supervised_model.py` — training pipeline scripts
+#### ~~Dead / Orphaned Files at Root Level~~ ✅ RESOLVED
+ML pipeline files moved to `ml/` package. One-off scripts moved to `scripts/`. `database.py` moved to `crawler/database.py`. All imports updated.
 
-**Impact:** New contributors cannot tell what's active vs. legacy. The flat root is confusing.
+#### ~~Duplicate Template / JS Paths~~ ✅ RESOLVED
+Deleted unused templates (`index.html`, `index-old.html`, `index-athletic.html`) and static assets (`app-old.js`, `app-athletic.js`, `styles-old.css`, `styles-athletic.css`). Only route-served templates remain: `home.html`, `explore.html`, `personalize.html`.
 
-**Recommendation:** Move ML pipeline into `ml/`, one-off scripts into `scripts/`, and delete truly dead files.
-
-#### Duplicate Template / JS Paths
-- `index.html` exists as a legacy tactical-UI template alongside `explore.html` and `home.html`
-- `app-old.js` and `app-athletic.js` sit in `static/` but appear unused
-- `index-athletic.html` is likely a leftover
-
-**Recommendation:** Audit which templates are actually served by routes. Delete unused ones.
-
-#### `render.yaml` Blueprint vs. Reality Mismatch
-The blueprint defines a `worker` service on a `starter` plan, but memories confirm the worker was never provisioned (free plan doesn't support workers; using `INLINE_JOB_EXECUTION=true`). The blueprint will fail if someone tries to deploy from it naively.
-
-**Recommendation:** Either remove the worker from `render.yaml` and document INLINE mode as the default, or add a comment explaining it's for future use.
+#### ~~`render.yaml` Blueprint vs. Reality Mismatch~~ ✅ RESOLVED
+Worker service commented out in `render.yaml` with documentation explaining INLINE mode is the default. `AUTO_CREATE_DB` set to `true` to match production reality.
 
 #### `personalize.js` — 1,220 Lines of Monolithic Vanilla JS
 The personalization UI is a single 1,220-line JS file with:
@@ -93,11 +79,11 @@ No pinned versions. No lockfile. Builds are non-reproducible.
 
 ### 2.3 Low-Priority Debt (Track)
 
-- `utcnow()` is defined in both `personalization/models.py` and `personalization/utils.py`
-- `main.py` at root is a Vercel entrypoint that just imports from `webapp.main` — duplication
+- ~~`utcnow()` is defined in both `personalization/models.py` and `personalization/utils.py`~~ ✅ Fixed — models.py now imports from utils.py
+- `main.py` at root is a Vercel entrypoint that just imports from `webapp.main` — duplication (required by Vercel)
 - No type checking (`mypy`) or linting in CI
 - `.python-version` file exists but no CI enforces it
-- `possible_pipeline.md` at root appears to be an old brainstorm document
+- ~~`possible_pipeline.md` at root appears to be an old brainstorm document~~ ✅ Deleted
 
 ---
 
@@ -298,8 +284,8 @@ Desired Outcome: Increase weekly active users from 0 to 500 within 3 months
 | **P0** | UI | Add shoe images to catalog and recommendation cards |
 | **P0** | UI | Replace brand→model dropdowns with typeahead search |
 | **P0** | UX | Fix developer-facing messages leaked to users |
-| **P1** | Tech Debt | Move root-level ML scripts into `ml/` package |
-| **P1** | Tech Debt | Delete unused templates and JS files |
+| ~~**P1**~~ | ~~Tech Debt~~ | ~~Move root-level ML scripts into `ml/` package~~ ✅ |
+| ~~**P1**~~ | ~~Tech Debt~~ | ~~Delete unused templates and JS files~~ ✅ |
 | **P1** | Testing | Add unit tests for scoring algorithm and CSV parsing |
 | **P1** | UI | Add URL-based state for shareable recommendations |
 | **P1** | Product | Auto-match imported shoes with fuzzy matching |
@@ -307,7 +293,7 @@ Desired Outcome: Increase weekly active users from 0 to 500 within 3 months
 | **P2** | Product | Build shareable rotation cards |
 | **P2** | UI | Humanize lab details with radar charts |
 | **P2** | Tech Debt | Split `styles.css` and `personalize.js` into modules |
-| **P2** | Tech Debt | Pin dependency versions |
+| ~~**P2**~~ | ~~Tech Debt~~ | ~~Pin dependency versions~~ ✅ |
 | **P3** | Product | Email digests and retirement alerts |
 | **P3** | Product | Affiliate links for monetization |
 | **P3** | Tech Debt | Add mypy/lint CI pipeline |
