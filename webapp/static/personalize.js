@@ -55,6 +55,21 @@ const progressData = document.getElementById("progress-data");
 const progressProfile = document.getElementById("progress-profile");
 const progressRecs = document.getElementById("progress-recs");
 
+// New scroll-triggered elements
+const heroSection = document.getElementById("hero-section");
+const progressSticky = document.getElementById("progress-sticky");
+const heroCards = Array.from(document.querySelectorAll(".hero-card"));
+const ingestHeader = document.getElementById("ingest-header");
+const ingestContent = document.getElementById("ingest-content");
+const ingestSummary = document.getElementById("ingest-summary");
+const ingestIndicator = document.getElementById("ingest-indicator");
+const profileHeader = document.getElementById("profile-header");
+const profileContent = document.getElementById("profile-content");
+const profileSummaryCompact = document.getElementById("profile-summary-compact");
+const profileIndicator = document.getElementById("profile-indicator");
+const shoeMappingStep = document.getElementById("shoe-mapping-step");
+const unmappedShoesContainer = document.getElementById("unmapped-shoes-container");
+
 function setBanner(message, level = "info") {
   banner.textContent = message;
   banner.className = `message-banner ${level}`;
@@ -133,6 +148,18 @@ function togglePanel(panelId) {
     sourceSummary.style.display = isCollapsed ? "flex" : "none";
     sourceIndicator.textContent = isCollapsed ? "+" : "−";
     sourceHeader.classList.toggle("collapsed", isCollapsed);
+  } else if (panelId === "ingest") {
+    const isCollapsed = ingestContent.classList.contains("collapsed");
+    ingestContent.classList.toggle("collapsed", !isCollapsed);
+    ingestSummary.style.display = isCollapsed ? "none" : "flex";
+    ingestIndicator.textContent = isCollapsed ? "−" : "+";
+    ingestHeader.classList.toggle("collapsed", !isCollapsed);
+  } else if (panelId === "profile") {
+    const isCollapsed = profileContent.classList.contains("collapsed");
+    profileContent.classList.toggle("collapsed", !isCollapsed);
+    profileSummaryCompact.style.display = isCollapsed ? "none" : "flex";
+    profileIndicator.textContent = isCollapsed ? "−" : "+";
+    profileHeader.classList.toggle("collapsed", !isCollapsed);
   } else if (panelId === "recs") {
     personalizeState.recsCollapsed = !personalizeState.recsCollapsed;
     const isCollapsed = personalizeState.recsCollapsed;
@@ -140,6 +167,43 @@ function togglePanel(panelId) {
     recsIndicator.textContent = isCollapsed ? "+" : "−";
     recsHeader.classList.toggle("collapsed", isCollapsed);
   }
+}
+
+// Collapse all onboarding panels (called after data is added)
+function collapseAllOnboardingPanels() {
+  if (sourceContent && !sourceContent.classList.contains("collapsed")) {
+    togglePanel("source");
+  }
+  if (ingestContent && !ingestContent.classList.contains("collapsed")) {
+    togglePanel("ingest");
+  }
+  if (profileContent && !profileContent.classList.contains("collapsed")) {
+    togglePanel("profile");
+  }
+}
+
+// Hero section: scroll to and select data source
+function handleHeroAction(action) {
+  // Hide hero section smoothly
+  if (heroSection) {
+    heroSection.classList.add("scrolled-past");
+    setTimeout(() => {
+      heroSection.classList.add("hidden");
+      // Scroll to onboarding flow
+      const onboardingFlow = document.getElementById("onboarding-flow");
+      if (onboardingFlow) {
+        onboardingFlow.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    }, 500);
+  }
+  
+  // Select the appropriate source
+  switchSource(action);
+  
+  // Update hero selection state
+  heroCards.forEach((card) => {
+    card.classList.toggle("active", card.dataset.heroAction === action);
+  });
 }
 
 // Update source summary text based on selected source
@@ -157,9 +221,7 @@ function updateSourceSummary() {
 
 // Collapse source panel after data is added/imported
 function collapseSourcePanel() {
-  if (!personalizeState.sourceCollapsed) {
-    togglePanel("source");
-  }
+  collapseAllOnboardingPanels();
 }
 
 // Update progress indicator based on user state
@@ -281,6 +343,7 @@ function canEditShoe(shoe) {
 function renderRotation() {
   if (!personalizeState.rotation.length) {
     rotationTableBody.innerHTML = `<tr><td colspan="6">No shoes detected yet. Add a shoe manually or import activity history.</td></tr>`;
+    renderUnmappedShoes();
     return;
   }
   rotationTableBody.innerHTML = personalizeState.rotation
@@ -302,6 +365,8 @@ function renderRotation() {
       </tr>
     `)
     .join("");
+  
+  renderUnmappedShoes();
 }
 
 function recommendationCard(item) {
@@ -345,7 +410,61 @@ function renderRecommendations(context) {
   recommendationMeta.className = "message-banner muted";
   recommendationMeta.textContent = `${payload.confidence.toUpperCase()} confidence. ${payload.missing_signals.join(" ") || "Data coverage is currently sufficient for this context."}`;
   recommendationResults.className = "card-grid";
-  recommendationResults.innerHTML = payload.results.map(recommendationCard).join("");
+  // Limit to 4 recommendations as per UX requirement
+  const limitedResults = payload.results.slice(0, 4);
+  recommendationResults.innerHTML = limitedResults.map(recommendationCard).join("");
+}
+
+// Render unmapped shoes in the dedicated mapping section
+function renderUnmappedShoes() {
+  if (!unmappedShoesContainer || !shoeMappingStep) return;
+  
+  const unmappedShoes = personalizeState.rotation.filter((shoe) => shoe.mapping_status !== "catalog_matched");
+  
+  if (unmappedShoes.length === 0) {
+    shoeMappingStep.style.display = "none";
+    return;
+  }
+  
+  shoeMappingStep.style.display = "block";
+  unmappedShoesContainer.innerHTML = unmappedShoes.map((shoe) => `
+    <div class="unmapped-shoe-card" data-shoe-id="${shoe.owned_shoe_id}">
+      <div class="shoe-name">${shoe.gear_name || shoe.custom_name || "Unnamed shoe"}</div>
+      <div class="map-action">
+        <select class="map-select" data-shoe-id="${shoe.owned_shoe_id}">
+          <option value="">Match to catalog...</option>
+          ${personalizeState.catalogShoes.map((catalogShoe) => `
+            <option value="${catalogShoe.shoe_id}">${catalogShoe.display_name}</option>
+          `).join("")}
+        </select>
+        <button class="cta-small map-btn" data-shoe-id="${shoe.owned_shoe_id}">Map</button>
+      </div>
+    </div>
+  `).join("");
+  
+  // Add event listeners for map buttons
+  unmappedShoesContainer.querySelectorAll(".map-btn").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      const shoeId = e.target.dataset.shoeId;
+      const select = unmappedShoesContainer.querySelector(`select[data-shoe-id="${shoeId}"]`);
+      const catalogShoeId = select?.value;
+      if (!catalogShoeId) {
+        setBanner("Please select a catalog shoe to map.", "warning");
+        return;
+      }
+      try {
+        await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ catalog_shoe_id: catalogShoeId }),
+        });
+        setBanner("Shoe mapped successfully.", "success");
+        await refreshWorkspace();
+      } catch (error) {
+        setBanner(error.message, "error");
+      }
+    });
+  });
 }
 
 async function loadCatalogShoes() {
@@ -909,13 +1028,94 @@ window.addEventListener("DOMContentLoaded", async () => {
     if (sourceHeader) {
       sourceHeader.addEventListener("click", () => togglePanel("source"));
     }
+    if (ingestHeader) {
+      ingestHeader.addEventListener("click", () => togglePanel("ingest"));
+    }
+    if (profileHeader) {
+      profileHeader.addEventListener("click", () => togglePanel("profile"));
+    }
     if (recsHeader) {
       recsHeader.addEventListener("click", () => togglePanel("recs"));
     }
     
+    // Hero card click handlers
+    heroCards.forEach((card) => {
+      card.addEventListener("click", () => {
+        const action = card.dataset.heroAction;
+        if (action) {
+          handleHeroAction(action);
+        }
+      });
+    });
+    
     // Initialize progress indicator
     updateProgressIndicator();
+    
+    // Set up scroll-triggered animations
+    setupScrollObserver();
+    
+    // Set up sticky progress bar
+    setupStickyProgressBar();
   } catch (error) {
     setBanner(error.message, "error");
   }
 });
+
+// Scroll observer for viewport-based card dismissal
+function setupScrollObserver() {
+  const scrollSections = document.querySelectorAll(".scroll-section");
+  
+  const observerOptions = {
+    root: null,
+    rootMargin: "-10% 0px -30% 0px",
+    threshold: [0, 0.25, 0.5, 0.75, 1]
+  };
+  
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      const section = entry.target;
+      const ratio = entry.intersectionRatio;
+      
+      if (ratio < 0.25) {
+        section.classList.add("viewport-exit");
+        section.classList.remove("viewport-far");
+      } else if (ratio < 0.5) {
+        section.classList.add("viewport-far");
+        section.classList.remove("viewport-exit");
+      } else {
+        section.classList.remove("viewport-exit", "viewport-far");
+      }
+      
+      // Auto-dismiss onboarding cards when scrolled well past
+      if (section.classList.contains("onboarding-card") && ratio < 0.1 && entry.boundingClientRect.top < 0) {
+        section.classList.add("dismissed");
+      } else if (ratio > 0.3) {
+        section.classList.remove("dismissed");
+      }
+    });
+  }, observerOptions);
+  
+  scrollSections.forEach((section) => {
+    observer.observe(section);
+  });
+}
+
+// Sticky progress bar visibility
+function setupStickyProgressBar() {
+  if (!progressSticky) return;
+  
+  const heroObserver = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      // Show sticky progress when hero scrolls out of view
+      if (!entry.isIntersecting) {
+        progressSticky.classList.add("visible");
+      } else {
+        progressSticky.classList.remove("visible");
+      }
+    });
+  }, { threshold: 0.1 });
+  
+  if (heroSection) {
+    heroObserver.observe(heroSection);
+  }
+}

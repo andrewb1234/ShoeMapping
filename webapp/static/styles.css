@@ -1726,6 +1726,249 @@ a {
   color: var(--accent-tactical);
 }
 
+/* ============================================
+   HERO SECTION - New user onboarding flow
+   ============================================ */
+
+.hero-surface {
+  min-height: calc(100vh - 200px);
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 48px;
+  padding: 48px 24px;
+  border: 2px solid var(--grid-line);
+  background: linear-gradient(135deg, var(--bg-canvas) 0%, var(--bg-canvas-warm) 100%);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.hero-surface.scrolled-past {
+  opacity: 0.3;
+  transform: scale(0.98);
+  pointer-events: none;
+}
+
+.hero-surface.hidden {
+  display: none;
+}
+
+.hero-content {
+  text-align: center;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--accent-tactical);
+  margin-bottom: 16px;
+}
+
+.hero-title {
+  font-family: var(--font-heading);
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+  line-height: 1.2;
+}
+
+.hero-subtitle {
+  font-family: var(--font-body);
+  font-size: 1.1rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.hero-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 24px;
+  max-width: 900px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.hero-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 12px;
+  padding: 32px 24px;
+  background: var(--bg-canvas);
+  border: 2px solid var(--grid-line);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.2s ease;
+}
+
+.hero-card:hover {
+  border-color: var(--accent-tactical);
+  transform: translateY(-2px);
+}
+
+.hero-card:active {
+  transform: translateY(0);
+}
+
+.hero-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.hero-card strong {
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+
+.hero-card span:last-child {
+  font-family: var(--font-body);
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.hero-scroll-hint {
+  text-align: center;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* ============================================
+   STICKY PROGRESS BAR
+   ============================================ */
+
+.progress-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-canvas);
+  padding: 16px 0;
+  border-bottom: 2px solid var(--grid-line);
+  margin-bottom: 24px;
+  opacity: 0;
+  transform: translateY(-100%);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.progress-sticky.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* ============================================
+   SCROLL-TRIGGERED SECTION ANIMATIONS
+   ============================================ */
+
+.scroll-section {
+  transition: opacity 0.4s ease, transform 0.4s ease, max-height 0.4s ease;
+}
+
+.scroll-section.viewport-exit {
+  opacity: 0.4;
+  transform: translateX(-20px);
+}
+
+.scroll-section.viewport-far {
+  opacity: 0.2;
+  transform: translateX(-40px) scale(0.98);
+}
+
+.scroll-section.dismissed {
+  opacity: 0;
+  max-height: 80px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.scroll-section.dismissed .panel-header {
+  opacity: 0.6;
+}
+
+/* Onboarding cards - special styling for data entry flow */
+.onboarding-card {
+  position: relative;
+}
+
+.onboarding-card::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 24px;
+  bottom: 24px;
+  width: 4px;
+  background: var(--grid-line-dim);
+  transition: background 0.3s ease;
+}
+
+.onboarding-card[data-stage="add-data"]::before {
+  background: var(--accent-tactical);
+}
+
+.onboarding-card.completed::before {
+  background: var(--text-muted);
+}
+
+/* Unmapped shoes grid */
+.unmapped-shoes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.unmapped-shoe-card {
+  border: 2px solid var(--grid-line);
+  padding: 16px;
+  background: var(--bg-canvas);
+}
+
+.unmapped-shoe-card .shoe-name {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.95rem;
+  margin-bottom: 12px;
+}
+
+.unmapped-shoe-card .map-action {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.unmapped-shoe-card select {
+  flex: 1;
+  padding: 8px;
+  border: 2px solid var(--grid-line);
+  background: var(--bg-canvas);
+  font-family: var(--font-body);
+}
+
+/* Small CTA button for inline actions */
+.cta-small {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  padding: 8px 12px;
+  background: var(--accent-tactical);
+  color: var(--bg-canvas);
+  border: 2px solid var(--accent-tactical);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.cta-small:hover {
+  background: var(--accent-tactical-dark);
+  border-color: var(--accent-tactical-dark);
+}
+
 /* Responsive adjustments */
 @media (max-width: 720px) {
   .progress-bar {
@@ -1746,5 +1989,18 @@ a {
   .panel-summary {
     flex-wrap: wrap;
     gap: 8px;
+  }
+  
+  .hero-title {
+    font-size: 1.8rem;
+  }
+  
+  .hero-actions {
+    grid-template-columns: 1fr;
+  }
+  
+  .hero-surface {
+    min-height: auto;
+    padding: 32px 16px;
   }
 }
