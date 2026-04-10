@@ -529,109 +529,122 @@ async function refreshWorkspace() {
   await loadRecommendations(personalizeState.activeContext);
 }
 
-sourceCards.forEach((card) => {
-  card.addEventListener("click", () => {
-    if (card.disabled) {
-      return;
-    }
-    switchSource(card.dataset.source);
+// Legacy source card handlers - wrapped in null check
+if (sourceCards && sourceCards.length > 0) {
+  sourceCards.forEach((card) => {
+    card.addEventListener("click", () => {
+      if (card.disabled) {
+        return;
+      }
+      switchSource(card.dataset.source);
+    });
   });
-});
+}
 
-manualForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    await apiFetch("/api/rotation/shoes", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        catalog_shoe_id: catalogSelect.value || null,
-        custom_brand: document.getElementById("manual-brand").value || null,
-        custom_name: document.getElementById("manual-name").value || null,
-        start_mileage_km: Number(document.getElementById("manual-start-mileage").value || 0),
-        retirement_target_km: document.getElementById("manual-retirement-target").value
-          ? Number(document.getElementById("manual-retirement-target").value)
-          : null,
-        notes: document.getElementById("manual-notes").value || null,
-      }),
-    });
-    setBanner("Added the shoe to your rotation and refreshed the profile.", "success");
-    manualForm.reset();
-    await refreshWorkspace();
-    collapseSourcePanel();
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
-
-uploadForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const fileInput = document.getElementById("import-file");
-  if (!fileInput.files.length) {
-    setBanner("Choose a CSV or GPX file first.", "warning");
-    return;
-  }
-  try {
-    const file = fileInput.files[0];
-    const formData = new FormData();
-    formData.append("file", file);
-    const sourceType = file.name.toLowerCase().endsWith(".gpx") ? "gpx" : "csv";
-    formData.append("source_type", sourceType);
-    const payload = await apiFetch("/api/imports", {
-      method: "POST",
-      body: formData,
-    });
-    const summary = payload.summary || {};
-    const warnings = payload.warnings?.length ? ` ${payload.warnings.join(" ")}` : "";
-    setBanner(
-      `Imported ${summary.imported_activities || 0} runs. Detected ${summary.detected_shoe_count || 0} shoe names, ${summary.mapped_shoe_count || 0} matched to the catalog, ${summary.unmapped_shoe_count || 0} still unmapped.${warnings}`.trim(),
-      "success",
-    );
-    fileInput.value = "";
-    await refreshWorkspace();
-    collapseSourcePanel();
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
-
-profileForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  try {
-    const targetContexts = Array.from(document.querySelectorAll(".checkbox-row input[type='checkbox']"))
-      .filter((checkbox) => checkbox.checked)
-      .map((checkbox) => checkbox.value);
-    personalizeState.profile = await apiFetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        preferred_terrain: document.getElementById("profile-preferred-terrain").value || null,
-        weekly_mileage_override_km: document.getElementById("profile-weekly-override").value
-          ? Number(document.getElementById("profile-weekly-override").value)
-          : null,
-        target_contexts: targetContexts,
-        notes: document.getElementById("profile-notes").value || null,
-      }),
-    });
-    renderProfile();
-    setBanner("Saved profile overrides and refreshed recommendation scoring.", "success");
-    await loadRecommendations(personalizeState.activeContext);
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
-
-contextTabs.forEach((tab) => {
-  tab.addEventListener("click", async () => {
-    contextTabs.forEach((candidate) => candidate.classList.remove("active"));
-    tab.classList.add("active");
+// Legacy manual form handler - wrapped in null check for new state-based UI
+if (manualForm) {
+  manualForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
     try {
-      await loadRecommendations(tab.dataset.context);
+      await apiFetch("/api/rotation/shoes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          catalog_shoe_id: catalogSelect.value || null,
+          custom_brand: document.getElementById("manual-brand")?.value || null,
+          custom_name: document.getElementById("manual-name")?.value || null,
+          start_mileage_km: Number(document.getElementById("manual-start-mileage")?.value || 0),
+          retirement_target_km: document.getElementById("manual-retirement-target")?.value
+            ? Number(document.getElementById("manual-retirement-target").value)
+            : null,
+          notes: document.getElementById("manual-notes")?.value || null,
+        }),
+      });
+      setBanner("Added the shoe to your rotation and refreshed the profile.", "success");
+      manualForm.reset();
+      await refreshWorkspace();
     } catch (error) {
       setBanner(error.message, "error");
     }
   });
-});
+}
+
+// Legacy upload form handler - wrapped in null check for new state-based UI
+if (uploadForm) {
+  uploadForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const fileInput = document.getElementById("import-file");
+    if (!fileInput?.files?.length) {
+      setBanner("Choose a CSV or GPX file first.", "warning");
+      return;
+    }
+    try {
+      const file = fileInput.files[0];
+      const formData = new FormData();
+      formData.append("file", file);
+      const sourceType = file.name.toLowerCase().endsWith(".gpx") ? "gpx" : "csv";
+      formData.append("source_type", sourceType);
+      const payload = await apiFetch("/api/imports", {
+        method: "POST",
+        body: formData,
+      });
+      const summary = payload.summary || {};
+      const warnings = payload.warnings?.length ? ` ${payload.warnings.join(" ")}` : "";
+      setBanner(
+        `Imported ${summary.imported_activities || 0} runs. Detected ${summary.detected_shoe_count || 0} shoe names, ${summary.mapped_shoe_count || 0} matched to the catalog, ${summary.unmapped_shoe_count || 0} still unmapped.${warnings}`.trim(),
+        "success",
+      );
+      fileInput.value = "";
+      await refreshWorkspace();
+    } catch (error) {
+      setBanner(error.message, "error");
+    }
+  });
+}
+
+// Legacy profile form handler - wrapped in null check for new state-based UI
+if (profileForm) {
+  profileForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    try {
+      const targetContexts = Array.from(document.querySelectorAll(".checkbox-row input[type='checkbox']"))
+        .filter((checkbox) => checkbox.checked)
+        .map((checkbox) => checkbox.value);
+      personalizeState.profile = await apiFetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          preferred_terrain: document.getElementById("profile-preferred-terrain")?.value || null,
+          weekly_mileage_override_km: document.getElementById("profile-weekly-override")?.value
+            ? Number(document.getElementById("profile-weekly-override").value)
+            : null,
+          target_contexts: targetContexts,
+          notes: document.getElementById("profile-notes")?.value || null,
+        }),
+      });
+      renderProfile();
+      setBanner("Saved profile overrides and refreshed recommendation scoring.", "success");
+      await loadRecommendations(personalizeState.activeContext);
+    } catch (error) {
+      setBanner(error.message, "error");
+    }
+  });
+}
+
+// Legacy context tab handlers - wrapped in null check
+if (contextTabs && contextTabs.length > 0) {
+  contextTabs.forEach((tab) => {
+    tab.addEventListener("click", async () => {
+      contextTabs.forEach((candidate) => candidate.classList.remove("active"));
+      tab.classList.add("active");
+      try {
+        await loadRecommendations(tab.dataset.context);
+      } catch (error) {
+        setBanner(error.message, "error");
+      }
+    });
+  });
+}
 
 // Modal for editing retirement target
 const editTargetModal = document.getElementById("edit-target-modal");
@@ -652,85 +665,101 @@ function closeEditTargetModal() {
   editTargetForm.reset();
 }
 
-modalCloseBtn.addEventListener("click", closeEditTargetModal);
-modalCancelBtn.addEventListener("click", closeEditTargetModal);
-editTargetModal.addEventListener("click", (event) => {
-  if (event.target === editTargetModal) {
-    closeEditTargetModal();
-  }
-});
-
-editTargetForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const shoeId = editShoeIdInput.value;
-  const targetValue = editRetirementTargetInput.value;
-  try {
-    await apiFetch(`/api/rotation/shoes/${shoeId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        retirement_target_km: targetValue ? Number(targetValue) : null,
-      }),
-    });
-    setBanner("Updated retirement target.", "success");
-    closeEditTargetModal();
-    await refreshWorkspace();
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
-
-recommendationResults.addEventListener("click", async (event) => {
-  const addButton = event.target.closest("[data-add-shoe]");
-  const likeButton = event.target.closest("[data-feedback-like]");
-  const dislikeButton = event.target.closest("[data-feedback-dislike]");
-  try {
-    if (addButton) {
-      await apiFetch("/api/rotation/shoes", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ catalog_shoe_id: addButton.dataset.addShoe }),
-      });
-      setBanner("Added recommendation to your rotation.", "success");
-      await refreshWorkspace();
-      return;
+// Legacy modal event listeners - wrapped in null checks
+if (modalCloseBtn) {
+  modalCloseBtn.addEventListener("click", closeEditTargetModal);
+}
+if (modalCancelBtn) {
+  modalCancelBtn.addEventListener("click", closeEditTargetModal);
+}
+if (editTargetModal) {
+  editTargetModal.addEventListener("click", (event) => {
+    if (event.target === editTargetModal) {
+      closeEditTargetModal();
     }
-    if (likeButton || dislikeButton) {
-      const shoeId = (likeButton || dislikeButton).dataset.feedbackLike || (likeButton || dislikeButton).dataset.feedbackDislike;
-      await apiFetch("/api/feedback", {
-        method: "POST",
+  });
+}
+
+// Legacy edit target form handler
+if (editTargetForm) {
+  editTargetForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const shoeId = editShoeIdInput?.value;
+    const targetValue = editRetirementTargetInput?.value;
+    if (!shoeId) return;
+    try {
+      await apiFetch(`/api/rotation/shoes/${shoeId}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          catalog_shoe_id: shoeId,
-          signal: likeButton ? "like" : "dislike",
-          context: personalizeState.activeContext,
+          retirement_target_km: targetValue ? Number(targetValue) : null,
         }),
       });
-      setBanner("Stored your feedback and refreshed the ranking.", "success");
-      await loadRecommendations(personalizeState.activeContext);
+      setBanner("Updated retirement target.", "success");
+      closeEditTargetModal();
+      await refreshWorkspace();
+    } catch (error) {
+      setBanner(error.message, "error");
     }
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
+  });
+}
 
-// Handle edit target button clicks in rotation table
-rotationTableBody.addEventListener("click", (event) => {
-  const editBtn = event.target.closest(".edit-target-btn");
-  const mapBtn = event.target.closest(".map-shoe-btn");
-  
-  if (editBtn) {
-    const shoeId = editBtn.dataset.shoeId;
-    const currentTarget = editBtn.dataset.currentTarget;
-    openEditTargetModal(shoeId, currentTarget);
-  }
-  
-  if (mapBtn) {
-    const shoeId = mapBtn.dataset.shoeId;
-    const shoeName = mapBtn.dataset.shoeName;
-    openMapShoeModal(shoeId, shoeName);
-  }
-});
+// Legacy recommendation results click handler
+if (recommendationResults) {
+  recommendationResults.addEventListener("click", async (event) => {
+    const addButton = event.target.closest("[data-add-shoe]");
+    const likeButton = event.target.closest("[data-feedback-like]");
+    const dislikeButton = event.target.closest("[data-feedback-dislike]");
+    try {
+      if (addButton) {
+        await apiFetch("/api/rotation/shoes", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ catalog_shoe_id: addButton.dataset.addShoe }),
+        });
+        setBanner("Added recommendation to your rotation.", "success");
+        await refreshWorkspace();
+        return;
+      }
+      if (likeButton || dislikeButton) {
+        const shoeId = (likeButton || dislikeButton).dataset.feedbackLike || (likeButton || dislikeButton).dataset.feedbackDislike;
+        await apiFetch("/api/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            catalog_shoe_id: shoeId,
+            signal: likeButton ? "like" : "dislike",
+            context: personalizeState.activeContext,
+          }),
+        });
+        setBanner("Stored your feedback and refreshed the ranking.", "success");
+        await loadRecommendations(personalizeState.activeContext);
+      }
+    } catch (error) {
+      setBanner(error.message, "error");
+    }
+  });
+}
+
+// Legacy rotation table click handler
+if (rotationTableBody) {
+  rotationTableBody.addEventListener("click", (event) => {
+    const editBtn = event.target.closest(".edit-target-btn");
+    const mapBtn = event.target.closest(".map-shoe-btn");
+    
+    if (editBtn) {
+      const shoeId = editBtn.dataset.shoeId;
+      const currentTarget = editBtn.dataset.currentTarget;
+      openEditTargetModal(shoeId, currentTarget);
+    }
+    
+    if (mapBtn) {
+      const shoeId = mapBtn.dataset.shoeId;
+      const shoeName = mapBtn.dataset.shoeName;
+      openMapShoeModal(shoeId, shoeName);
+    }
+  });
+}
 
 // Mapping modal elements
 const mapShoeModal = document.getElementById("map-shoe-modal");
@@ -760,34 +789,44 @@ function closeMapShoeModal() {
   mapShoeForm.reset();
 }
 
-mapModalCloseBtn.addEventListener("click", closeMapShoeModal);
-mapModalCancelBtn.addEventListener("click", closeMapShoeModal);
-mapShoeModal.addEventListener("click", (event) => {
-  if (event.target === mapShoeModal) {
-    closeMapShoeModal();
-  }
-});
+// Legacy map modal event listeners - wrapped in null checks
+if (mapModalCloseBtn) {
+  mapModalCloseBtn.addEventListener("click", closeMapShoeModal);
+}
+if (mapModalCancelBtn) {
+  mapModalCancelBtn.addEventListener("click", closeMapShoeModal);
+}
+if (mapShoeModal) {
+  mapShoeModal.addEventListener("click", (event) => {
+    if (event.target === mapShoeModal) {
+      closeMapShoeModal();
+    }
+  });
+}
 
-mapShoeForm.addEventListener("submit", async (event) => {
-  event.preventDefault();
-  const shoeId = mapShoeIdInput.value;
-  const catalogShoeId = mapCatalogShoeSelect.value;
-  
-  try {
-    await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        catalog_shoe_id: catalogShoeId || null,
-      }),
-    });
-    setBanner(catalogShoeId ? "Shoe mapped to catalog." : "Shoe left unmapped.", "success");
-    closeMapShoeModal();
-    await refreshWorkspace();
-  } catch (error) {
-    setBanner(error.message, "error");
-  }
-});
+// Legacy map shoe form handler
+if (mapShoeForm) {
+  mapShoeForm.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const shoeId = mapShoeIdInput.value;
+    const catalogShoeId = mapCatalogShoeSelect.value;
+    
+    try {
+      await apiFetch(`/api/rotation/shoes/${shoeId}/map`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          catalog_shoe_id: catalogShoeId || null,
+        }),
+      });
+      setBanner(catalogShoeId ? "Shoe mapped to catalog." : "Shoe left unmapped.", "success");
+      closeMapShoeModal();
+      await refreshWorkspace();
+    } catch (error) {
+      setBanner(error.message, "error");
+    }
+  });
+}
 
 // Visualization functions
 async function loadVisualizations() {
