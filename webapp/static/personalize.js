@@ -13,12 +13,7 @@ const personalizeState = {
 };
 
 const banner = document.getElementById("personalize-banner");
-const sourceCards = Array.from(document.querySelectorAll(".source-card"));
-const manualPanel = document.getElementById("manual-panel");
-const uploadPanel = document.getElementById("upload-panel");
-const stravaPanel = document.getElementById("strava-panel");
 const manualForm = document.getElementById("manual-shoe-form");
-const uploadForm = document.getElementById("upload-form");
 const profileForm = document.getElementById("profile-form");
 const profileSummary = document.getElementById("profile-summary");
 const rotationTableBody = document.getElementById("rotation-table-body");
@@ -108,15 +103,6 @@ function statusLabel(shoe) {
   return `${label} · ${Math.max(shoe.remaining_km, 0).toFixed(0)} km left`;
 }
 
-function switchSource(nextSource) {
-  personalizeState.currentSource = nextSource;
-  sourceCards.forEach((card) => card.classList.toggle("active", card.dataset.source === nextSource));
-  manualPanel.classList.toggle("active", nextSource === "manual");
-  uploadPanel.classList.toggle("active", nextSource === "csv" || nextSource === "gpx");
-  stravaPanel.classList.toggle("active", nextSource === "strava");
-  updateSourceSummary();
-}
-
 // State management
 let currentState = "landing"; // landing, import, mapping, dashboard
 
@@ -198,7 +184,6 @@ function updateRecommendationsVisibility() {
     resultsStep.style.display = hasData ? "block" : "none";
   }
   
-  updateProgressIndicator();
 }
 
 function renderProfile() {
@@ -529,19 +514,7 @@ async function refreshWorkspace() {
   await loadRecommendations(personalizeState.activeContext);
 }
 
-// Legacy source card handlers - wrapped in null check
-if (sourceCards && sourceCards.length > 0) {
-  sourceCards.forEach((card) => {
-    card.addEventListener("click", () => {
-      if (card.disabled) {
-        return;
-      }
-      switchSource(card.dataset.source);
-    });
-  });
-}
-
-// Legacy manual form handler - wrapped in null check for new state-based UI
+// Manual shoe form handler (in dashboard tab) - wrapped in null check for new state-based UI
 if (manualForm) {
   manualForm.addEventListener("submit", async (event) => {
     event.preventDefault();
@@ -569,40 +542,7 @@ if (manualForm) {
   });
 }
 
-// Legacy upload form handler - wrapped in null check for new state-based UI
-if (uploadForm) {
-  uploadForm.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const fileInput = document.getElementById("import-file");
-    if (!fileInput?.files?.length) {
-      setBanner("Choose a CSV or GPX file first.", "warning");
-      return;
-    }
-    try {
-      const file = fileInput.files[0];
-      const formData = new FormData();
-      formData.append("file", file);
-      const sourceType = file.name.toLowerCase().endsWith(".gpx") ? "gpx" : "csv";
-      formData.append("source_type", sourceType);
-      const payload = await apiFetch("/api/imports", {
-        method: "POST",
-        body: formData,
-      });
-      const summary = payload.summary || {};
-      const warnings = payload.warnings?.length ? ` ${payload.warnings.join(" ")}` : "";
-      setBanner(
-        `Imported ${summary.imported_activities || 0} runs. Detected ${summary.detected_shoe_count || 0} shoe names, ${summary.mapped_shoe_count || 0} matched to the catalog, ${summary.unmapped_shoe_count || 0} still unmapped.${warnings}`.trim(),
-        "success",
-      );
-      fileInput.value = "";
-      await refreshWorkspace();
-    } catch (error) {
-      setBanner(error.message, "error");
-    }
-  });
-}
-
-// Legacy profile form handler - wrapped in null check for new state-based UI
+// Profile form handler (in dashboard tab) - wrapped in null check for new state-based UI
 if (profileForm) {
   profileForm.addEventListener("submit", async (event) => {
     event.preventDefault();
