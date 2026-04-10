@@ -2155,6 +2155,7 @@ a {
   margin-top: 8px;
   opacity: 0.6;
   transition: opacity 180ms ease;
+  position: relative;
 }
 
 .help-icon-btn:hover {
@@ -2166,7 +2167,8 @@ a {
   display: none;
   position: absolute;
   top: calc(100% + 8px);
-  right: 0;
+  left: 50%;
+  transform: translateX(-50%);
   width: 320px;
   background: var(--bg-canvas);
   border: 2px solid var(--grid-line);
