@@ -2102,7 +2102,6 @@ a {
   align-items: center;
   text-align: center;
   max-width: 200px;
-  position: relative;
 }
 
 .step-icon {
@@ -2166,9 +2165,8 @@ a {
 .strava-help-popover {
   display: none;
   position: absolute;
-  top: calc(100% + 12px);
-  left: 50%;
-  transform: translateX(-50%);
+  top: calc(100% + 8px);
+  right: 0;
   width: 320px;
   background: var(--bg-canvas);
   border: 2px solid var(--grid-line);
@@ -2176,6 +2174,10 @@ a {
   z-index: 20;
   text-align: left;
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.panel-header-simple {
+  position: relative;
 }
 
 .strava-help-popover.is-visible {
@@ -2242,6 +2244,16 @@ a {
   font-family: var(--font-heading);
   font-size: 1.5rem;
   margin-bottom: 8px;
+}
+
+.panel-header-with-help {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-header-with-help .help-icon-btn {
+  margin-top: 0;
 }
 
 .panel-header-simple p {
