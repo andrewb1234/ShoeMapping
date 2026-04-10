@@ -1139,7 +1139,8 @@ window.addEventListener("DOMContentLoaded", async () => {
         }
       });
       
-      dropZone.addEventListener("click", () => {
+      dropZone.addEventListener("click", (e) => {
+        if (e.target === importFileInput) return;
         if (importFileInput) {
           importFileInput.click();
         }
@@ -1155,7 +1156,8 @@ window.addEventListener("DOMContentLoaded", async () => {
     }
     
     if (uploadBtn) {
-      uploadBtn.addEventListener("click", () => {
+      uploadBtn.addEventListener("click", (e) => {
+        e.stopPropagation();
         if (importFileInput) {
           importFileInput.click();
         }
