@@ -848,6 +848,9 @@ function renderEfficiencyHeatmap(data) {
   const maxEfficiency = Math.max(...data.map(d => d.avg_efficiency), 6);
   
   vizEfficiencyContent.innerHTML = `
+    <div class="efficiency-explanation">
+      <small>HR-Adjusted Pace: Lower is better (heartbeats per meter). Accounts for terrain and effort.</small>
+    </div>
     <div class="efficiency-bar-container">
       ${data.map(shoe => {
         const pct = Math.min((shoe.avg_efficiency / maxEfficiency) * 100, 100);
@@ -949,9 +952,19 @@ function renderShoeMileage(data) {
   `;
 }
 
+function formatPace(minutesPerKm) {
+  // Convert decimal minutes to MM:SS format
+  const mins = Math.floor(minutesPerKm);
+  const secs = Math.round((minutesPerKm - mins) * 60);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
 function renderPaceDistribution(data) {
   vizPaceContent.innerHTML = `
     <div class="pace-distribution">
+      <div class="pace-legend">
+        <small>Box shows middle 50% of runs. Line is median pace. Faster (lower) pace is better.</small>
+      </div>
       ${data.map(shoe => `
         <div class="pace-shoe-block">
           <div class="pace-shoe-name">${shoe.gear_ref}</div>
@@ -971,11 +984,15 @@ function renderPaceDistribution(data) {
             return `
               <div class="pace-context-row">
                 <div class="pace-context-label">${ctx.run_context}</div>
-                <div class="pace-boxplot">
-                  <div class="pace-box" style="left: ${left}%; width: ${width}%"></div>
-                  <div class="pace-median" style="left: ${medianPos}%"></div>
+                <div class="pace-scale">
+                  <span class="pace-scale-start">${formatPace(max)}</span>
+                  <div class="pace-boxplot">
+                    <div class="pace-box" style="left: ${left}%; width: ${width}%"></div>
+                    <div class="pace-median" style="left: ${medianPos}%"></div>
+                  </div>
+                  <span class="pace-scale-end">${formatPace(min)}</span>
                 </div>
-                <div class="pace-range">${min.toFixed(1)}-${max.toFixed(1)} /km</div>
+                <div class="pace-median-label">med ${formatPace(median)}</div>
               </div>
             `;
           }).join("")}
@@ -1142,16 +1159,13 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Initialize visibility
     updateRecommendationsVisibility();
     
-    // Check if user has data - if so, show dashboard directly
-    // Use multiple signals to detect if returning user has existing data
-    const hasExistingData = personalizeState.hasData || 
-                          personalizeState.rotation.length > 0 ||
-                          (personalizeState.profile && personalizeState.profile.summary) ||
-                          (personalizeState.visualizations && 
-                           (personalizeState.visualizations.efficiency_heatmap?.length > 0 ||
-                            personalizeState.visualizations.monthly_mileage?.length > 0));
+    // Check if user has ACTUAL data - if so, show dashboard directly
+    // A profile with total_runs: 0 is an empty profile, not real data
+    const hasActualData = personalizeState.rotation.length > 0 ||
+                          (personalizeState.profile?.summary?.total_runs > 0) ||
+                          (personalizeState.visualizations?.efficiency_heatmap?.length > 0);
     
-    if (hasExistingData) {
+    if (hasActualData) {
       console.log("Returning user with data detected, showing dashboard");
       showDashboard();
     } else {

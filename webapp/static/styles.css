@@ -340,6 +340,8 @@ a {
 .panel-card h2,
 .hero-card h2 {
   font-size: clamp(1.5rem, 2vw, 2.2rem);
+  text-transform: uppercase;
+  letter-spacing: -0.01em;
 }
 
 .eyebrow {
@@ -1132,6 +1134,16 @@ a {
   grid-column: 1 / -1;
 }
 
+/* Recommendations Panel - Fix spacing */
+
+.panel-card .panel-header {
+  margin-bottom: 20px;
+}
+
+.panel-card .tab-row {
+  margin-top: 20px;
+}
+
 .viz-header {
   display: flex;
   justify-content: space-between;
@@ -1297,6 +1309,20 @@ a {
   font-size: 0.7rem;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+.efficiency-explanation {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--bg-canvas-warm);
+  border-left: 3px solid var(--accent-tactical);
+}
+
+.efficiency-explanation small {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
 }
 
 /* Monthly Mileage Table */
@@ -1482,6 +1508,43 @@ a {
   color: var(--text-secondary);
   min-width: 80px;
   text-align: right;
+}
+
+.pace-legend {
+  margin-bottom: 16px;
+  padding: 8px 12px;
+  background: var(--bg-canvas-warm);
+  border-left: 3px solid var(--accent-tactical);
+}
+
+.pace-legend small {
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.pace-scale {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.pace-scale-start,
+.pace-scale-end {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.pace-median-label {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--accent-tactical);
+  text-align: right;
+  min-width: 80px;
 }
 
 /* Rotation Calendar */
@@ -2518,14 +2581,16 @@ a {
 .tab-btn {
   font-family: var(--font-mono);
   font-size: 0.85rem;
-  font-weight: 500;
+  font-weight: 600;
   padding: 16px 24px;
-  background: transparent;
+  background: var(--bg-canvas);
   border: none;
   border-bottom: 3px solid transparent;
   cursor: pointer;
   color: var(--text-secondary);
   transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .tab-btn:hover {
@@ -2535,6 +2600,8 @@ a {
 .tab-btn.active {
   color: var(--accent-tactical);
   border-bottom-color: var(--accent-tactical);
+  background: var(--bg-primary);
+  font-weight: 700;
 }
 
 /* Tab Content */
